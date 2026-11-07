@@ -66,6 +66,31 @@ const store = new PortfolioStore(
   process.env.DATA_FILE || `.data/stocks-${mode}.json`,
 )
 const app = express()
+const allowedOrigins = (process.env.FRONTEND_ORIGIN || '')
+  .split(',')
+  .map((value) => value.trim())
+  .filter(Boolean)
+const originAllowed = (origin: string | undefined) =>
+  !allowedOrigins.length || !origin || allowedOrigins.includes(origin)
+app.use('/api', (req, res, next) => {
+  const origin = req.headers.origin
+  res.vary('Origin')
+  if (!originAllowed(origin)) {
+    res.status(403).json({ error: 'This frontend origin is not allowed.' })
+    return
+  }
+  if (origin && allowedOrigins.includes(origin)) {
+    res.setHeader('Access-Control-Allow-Origin', origin)
+    res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS')
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type')
+  }
+  if (req.method === 'OPTIONS') {
+    res.sendStatus(204)
+    return
+  }
+  next()
+})
+app.get('/api/health', (_req, res) => res.json({ status: 'ok' }))
 app.use(express.json({ limit: '8kb' }))
 const exchangeRates = new ExchangeRateService()
 app.get('/api/exchange-rates', async (_req, res) => {
@@ -172,7 +197,12 @@ const server = app.listen(
       `Pulse: http://127.0.0.1:${process.env.PORT || 3001} · ${mode} stock data`,
     ),
 )
-const wss = new WebSocketServer({ server, path: '/ws', maxPayload: 4096 })
+const wss = new WebSocketServer({
+  server,
+  path: '/ws',
+  maxPayload: 4096,
+  verifyClient: (info: { origin: string }) => originAllowed(info.origin),
+})
 const hub = new MarketHub(() => provider.snapshot())
 function sendEncoded(socket: WebSocket, payload: string) {
   if (socket.readyState !== WebSocket.OPEN) return

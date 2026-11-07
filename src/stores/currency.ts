@@ -1,3 +1,4 @@
+import { api } from '../lib/api'
 import { computed, ref, watch } from 'vue'
 import { defineStore } from 'pinia'
 import {
@@ -38,12 +39,9 @@ export const useCurrency = defineStore('currency', () => {
     loading.value = true
     error.value = ''
     try {
-      const response = await fetch('/api/exchange-rates', {
-        signal: AbortSignal.timeout(10000),
-      })
-      if (!response.ok)
-        throw new Error('Exchange rates unavailable. Try again shortly.')
-      exchange.value = exchangeRatesSchema.parse(await response.json())
+      exchange.value = exchangeRatesSchema.parse(
+        await api<unknown>('/api/exchange-rates'),
+      )
     } catch {
       error.value = 'Exchange rates unavailable. Try again shortly.'
     } finally {

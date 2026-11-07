@@ -1,3 +1,4 @@
+import { socketUrl } from '../lib/endpoints'
 import { onMounted, onUnmounted } from 'vue'
 import { MarketConnection } from '../modules/market/connection'
 import { useMarket } from '../modules/market/store'
@@ -6,10 +7,7 @@ export function useMarketStream() {
   const market = useMarket(),
     portfolio = usePortfolio()
   const connection = new MarketConnection({
-    socket: () =>
-      new WebSocket(
-        `${location.protocol === 'https:' ? 'wss' : 'ws'}://${location.host}/ws`,
-      ),
+    socket: () => new WebSocket(socketUrl()),
     online: () => navigator.onLine,
     frame: (frame) => market.apply(frame),
     portfolio: (data) => portfolio.apply(data),

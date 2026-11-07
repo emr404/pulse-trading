@@ -1,3 +1,4 @@
+export { api } from './api'
 import { useCurrency } from '../stores/currency'
 export function money(n: number | null | undefined) {
   if (n == null || !Number.isFinite(n)) return '—'
@@ -26,20 +27,6 @@ export const percent = (n: number | null | undefined) =>
   n == null ? '—' : `${n >= 0 ? '+' : ''}${n.toFixed(2)}%`
 export const time = (n: number | null) =>
   n ? new Date(n).toLocaleTimeString('en-US', { hour12: false }) : '—'
-export async function api<T>(path: string, init?: RequestInit): Promise<T> {
-  const response = await fetch(path, {
-    ...init,
-    signal: init?.signal ?? AbortSignal.timeout(10000),
-  })
-  const body: unknown = await response.json()
-  if (!response.ok)
-    throw new Error(
-      typeof body === 'object' && body !== null && 'error' in body
-        ? String(body.error)
-        : 'Request failed. Please try again.',
-    )
-  return body as T
-}
 export function readLocal<T>(key: string, fallback: T): T {
   try {
     return (JSON.parse(localStorage.getItem(key) ?? 'null') as T) ?? fallback
