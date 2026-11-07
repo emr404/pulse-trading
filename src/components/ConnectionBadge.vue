@@ -1,0 +1,23 @@
+<script setup lang="ts">
+import { useTerminal } from '../stores/terminal'
+import { money, percent, time } from '../lib/format'
+const store = useTerminal()
+</script>
+<template>
+  <div class="page-meta">
+    <span class="connection-badge" :class="{ connected: store.connected }"
+      ><i class="status-dot" :class="{ amber: !store.connected }"></i
+      >{{
+        store.connection === 'connected'
+          ? 'Connected'
+          : store.connection === 'reconnecting'
+            ? 'Reconnecting'
+            : store.connection === 'connecting'
+              ? 'Connecting'
+              : 'Disconnected'
+      }}</span
+    ><small
+      >Last update <span>{{ time(store.status.lastMessageAt) }}</span></small
+    >
+  </div>
+</template>
