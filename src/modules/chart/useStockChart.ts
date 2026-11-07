@@ -88,7 +88,7 @@ export function useStockChart(selection: {
         data.candles.map((b) => ({
           time: b.time as UTCTimestamp,
           value: b.volume,
-          color: b.close >= b.open ? '#17171733' : '#a3a3a355',
+          color: b.close >= b.open ? '#2b745f66' : '#864a5366',
         })),
       )
       chart.timeScale().fitContent()
@@ -119,27 +119,27 @@ export function useStockChart(selection: {
     chart = createChart(container.value, {
       height: 340,
       layout: {
-        background: { type: ColorType.Solid, color: '#ffffff' },
-        textColor: '#666666',
+        background: { type: ColorType.Solid, color: '#111111' },
+        textColor: '#a3a3a3',
         fontFamily: 'Inter, sans-serif',
         fontSize: 12,
         attributionLogo: true,
       },
       grid: {
-        vertLines: { color: '#f2f2f2' },
-        horzLines: { color: '#eeeeee' },
+        vertLines: { color: '#202020' },
+        horzLines: { color: '#242424' },
       },
       crosshair: {
         mode: CrosshairMode.Normal,
-        vertLine: { color: '#737373', labelBackgroundColor: '#262626' },
-        horzLine: { color: '#737373', labelBackgroundColor: '#262626' },
+        vertLine: { color: '#737373', labelBackgroundColor: '#404040' },
+        horzLine: { color: '#737373', labelBackgroundColor: '#404040' },
       },
       rightPriceScale: {
-        borderColor: '#dedede',
+        borderColor: '#303030',
         scaleMargins: { top: 0.12, bottom: 0.25 },
       },
       timeScale: {
-        borderColor: '#dedede',
+        borderColor: '#303030',
         timeVisible: true,
         secondsVisible: false,
         rightOffset: 4,
@@ -152,10 +152,10 @@ export function useStockChart(selection: {
         formatter: (value: number) => money(value),
         minMove: 0.01,
       },
-      upColor: '#171717',
-      downColor: '#a3a3a3',
-      wickUpColor: '#171717',
-      wickDownColor: '#a3a3a3',
+      upColor: '#48c49b',
+      downColor: '#dd6b75',
+      wickUpColor: '#48c49b',
+      wickDownColor: '#dd6b75',
       borderVisible: false,
     })
     volume = chart.addSeries(HistogramSeries, {
@@ -231,7 +231,7 @@ export function useStockChart(selection: {
       volume.update({
         time: merged.time as UTCTimestamp,
         value: merged.volume,
-        color: merged.close >= merged.open ? '#17171733' : '#a3a3a355',
+        color: merged.close >= merged.open ? '#2b745f66' : '#864a5366',
       })
     }
     pending.clear()

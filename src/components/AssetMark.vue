@@ -6,8 +6,8 @@ defineProps<{ asset?: Asset; symbol?: string }>()
   <span
     class="asset-mark"
     :style="{
-      color: '#262626',
-      backgroundColor: '#f2f2f2',
+      color: asset?.color || '#a4b4ce',
+      backgroundColor: (asset?.color || '#a4b4ce') + '13',
     }"
     >{{ (asset?.symbol || symbol || '?').slice(0, 1)
     }}<span v-if="asset?.symbol === 'NVDA'" class="mark-dot"></span
