@@ -7,7 +7,7 @@ const currency = useCurrency()
 </script>
 <template>
   <section class="panel settings-panel">
-    <div class="panel-heading"><h2>Terminal preferences</h2></div>
+    <div class="panel-heading"><h2>App preferences</h2></div>
     <div class="settings-row currency-settings">
       <div>
         <label for="display-currency"><b>Display currency</b></label>

@@ -1,4 +1,4 @@
-# Pulse
+# Ledger
 
 A stock trading terminal with streaming prices, candlestick charts, watchlists and paper trading. All trades use virtual money.
 
@@ -34,7 +34,7 @@ This is a shared paper account: all visitors use the same balance and holdings. 
 1. Push this project to a GitHub repository on `main`.
 2. Under **Settings → Secrets and variables → Actions → Variables**, add `VITE_API_URL` with your backend origin, such as `https://pulse-api.example.com` (no `/api` suffix).
 3. Under **Settings → Pages**, select **GitHub Actions**.
-4. Under **Actions → Publish Pulse to GitHub Pages**, select **Run workflow**.
+4. Under **Actions → Publish Ledger to GitHub Pages**, select **Run workflow**.
 5. Find the website link under **Settings → Pages** when deployment finishes.
 
 Future pushes to `main` deploy automatically. Repository names need no code changes. WebSockets use the backend's `/ws` address automatically; add a `VITE_WS_URL` repository variable only if your host uses a different address. Redeploy after changing either variable.

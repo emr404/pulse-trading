@@ -144,12 +144,12 @@ onUnmounted(() => document.removeEventListener('keydown', shortcut))
       <a
         href="#"
         class="brand"
-        aria-label="Pulse overview"
+        aria-label="Ledger overview"
         @click.prevent="navigate('Overview')"
         ><span class="brand-icon"
           ><Activity :size="23" :stroke-width="2.4" /></span
-        ><span>pulse<span class="brand-period">.</span></span
-        ><span class="pro-tag">TERMINAL</span></a
+        ><span>ledger<span class="brand-period">.</span></span
+        ></a
       >
       <div class="workspace-label">WORKSPACE</div>
       <nav aria-label="Main navigation">
@@ -182,7 +182,7 @@ onUnmounted(() => document.removeEventListener('keydown', shortcut))
           <PanelLeftClose :size="17" /><span>Collapse sidebar</span>
         </button>
         <div class="sidebar-version">
-          <span class="status-dot"></span> PULSE TERMINAL <span>v1.0</span>
+          <span class="status-dot"></span> LEDGER <span>v1.0</span>
         </div>
       </div>
     </aside>
@@ -371,7 +371,7 @@ onUnmounted(() => document.removeEventListener('keydown', shortcut))
         />
         <footer>
           <span
-            ><Activity :size="12" /> Pulse · Built for a clearer
+            ><Activity :size="12" /> Ledger · Built for a clearer
             perspective.</span
           ><span
             >{{
