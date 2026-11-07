@@ -168,11 +168,6 @@ onUnmounted(() => document.removeEventListener('keydown', shortcut))
         </button>
       </nav>
       <div class="sidebar-bottom">
-        <div class="practice-card">
-          <ShieldCheck :size="18" /><b>Your edge starts here.</b>
-          <p>Build conviction.<br />Practice without the risk.</p>
-          <span>Paper trading workspace <ArrowUpRight :size="12" /></span>
-        </div>
         <button
           class="side-setting"
           :class="{ active: store.page === 'Settings' }"

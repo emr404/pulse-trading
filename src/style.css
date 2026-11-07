@@ -227,35 +227,6 @@ nav > button.active:before {
   margin-top: auto;
   padding-top: 60px;
 }
-.practice-card {
-  margin: 0 5px 28px;
-  border: 1px solid #28322d;
-  border-radius: 7px;
-  padding: 16px 12px;
-  background: #171e1a;
-  color: #bdd5ae;
-}
-.practice-card > b {
-  display: block;
-  font-size: 13px;
-  margin-top: 12px;
-}
-.practice-card p {
-  color: #859381;
-  font-size: 12px;
-  line-height: 1.8;
-  margin-top: 7px;
-}
-.practice-card > span {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  font-size: 10px;
-  border-top: 1px solid #2b352a;
-  padding-top: 12px;
-  margin-top: 14px;
-  color: #a8bd9e;
-}
 .side-setting {
   font-size: 12px;
   margin-top: 4px;
@@ -1713,7 +1684,6 @@ footer > span:first-child {
 .nav-collapsed .workspace-label,
 .nav-collapsed nav span,
 .nav-collapsed .side-setting span,
-.nav-collapsed .practice-card,
 .nav-collapsed .sidebar-version {
   display: none;
 }
@@ -1965,7 +1935,6 @@ footer > span:first-child {
   .sidebar .workspace-label,
   .sidebar nav span,
   .sidebar .side-setting span,
-  .sidebar .practice-card,
   .sidebar .sidebar-version {
     display: none;
   }
@@ -2038,7 +2007,6 @@ footer > span:first-child {
   .sidebar.mobile-open .workspace-label,
   .sidebar.mobile-open nav span,
   .sidebar.mobile-open .side-setting span,
-  .sidebar.mobile-open .practice-card,
   .sidebar.mobile-open .sidebar-version {
     display: initial;
   }
