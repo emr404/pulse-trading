@@ -38,9 +38,7 @@ Market cards, account summaries, update timestamps and the status-bar clock have
 
 Charts receive cumulative OHLCV buckets through a subscription, independently of quote-list rendering. The renderer queues bucket updates by timestamp and applies them on `requestAnimationFrame`; it does not repeatedly call `setData` for ticks. Historical data is shallow, live storage is bounded to 1,000 chart bars, and absolute live-volume baselines prevent repeated messages from double-counting volume. A full resync reloads chart history to repair gaps. Historical responses are cancellable, validated, sorted and deduplicated.
 
-Measured validation: a deterministic unit scenario consumes **10,000 events across 50 symbols**, flushes 100 batches and produces **4,850 quote writes** including initial state. The unaffected selected-symbol effect, another unaffected symbol, and portfolio valuation each execute only once. On the development machine this scenario took approximately **78 ms** in the latest local validation run. This is a synthetic processing measurement, not a promise of production throughput, network latency or frame rate.
-
-Browser profiling is opt-in with `VITE_PROFILE_RENDER=1` in development (enabled for Playwright). A browser test injects NVDA-only updates and verifies that watchlist rows render while the application shell and unrelated AAPL chart do not. Normal development and production leave Vue profiling disabled.
+Browser profiling is opt-in with `VITE_PROFILE_RENDER=1` in development. Normal development and production leave Vue profiling disabled.
 
 ### Connection health and stale data
 
@@ -55,7 +53,7 @@ Slow WebSocket consumers are closed rather than silently dropping deltas; they r
 
 ### Charting responsibilities
 
-`src/modules/chart/useStockChart.ts` owns the Lightweight Charts instance, historical loading, timeframe changes, currency formatting, selected-series subscription, animation-frame queue and resize observer. `aggregate.ts` implements the independently tested candle merge. `MarketChart.vue` renders controls and labels. On unmount, requests are aborted, chart subscriptions are removed, pending animation frames are cancelled, the resize observer is disconnected and the chart is destroyed.
+`src/modules/chart/useStockChart.ts` owns the Lightweight Charts instance, historical loading, timeframe changes, currency formatting, selected-series subscription, animation-frame queue and resize observer. `aggregate.ts` implements the candle merge. `MarketChart.vue` renders controls and labels. On unmount, requests are aborted, chart subscriptions are removed, pending animation frames are cancelled, the resize observer is disconnected and the chart is destroyed.
 
 Live display candles aggregate accepted normalized prices, including quote updates, in UTC buckets. They are a visual approximation, not official exchange-finalized bars. History and live bars can overlap; the historical response provides the live-volume baseline at retrieval time. The five ranges use shared interval definitions. Changing display currency affects formatting only, not the stored USD candle values.
 
@@ -92,13 +90,9 @@ Invalid request structure receives HTTP 400. A structurally valid order that can
 
 USD remains the accounting currency. Display FX conversion does not alter order quantities, buying power validation, percentage returns or execution prices.
 
-## Validation
+## Build verification
 
-Local verification passed: **24 unit tests**, **6 Playwright workflows**, and the production build with strict TypeScript checks.
-
-Unit tests cover financial calculations and persistence; pending/filled/cancelled/rejected states; idempotency and restart recovery; insufficient funds; stale and disconnected execution; event deduplication, invalid/crossed quotes, timestamps and independent event clocks; burst aggregation and volume preservation; sequence gaps, heartbeat silence, retry schedules, subscription restoration and cleanup; per-symbol reactive isolation; decimal valuation and currency conversion.
-
-Playwright covers charts, navigation, watchlists, currency persistence, USD accounting, cancellation/rejection UI, transport interruption, stale-price recovery, component render isolation, and desktop/mobile layout. `npm run build` includes strict frontend and backend TypeScript checks.
+`npm run build` includes strict frontend and backend TypeScript checks. Automated test suites are not included in this repository snapshot.
 
 ## Deliberate limits
 
@@ -107,4 +101,4 @@ Playwright covers charts, navigation, watchlists, currency persistence, USD acco
 - Price snapshots may skip intermediate displayed numbers, but accepted candle extremes/volume are aggregated before batching. Reconnect backfill depends on provider historical-data availability.
 - All configured symbols (maximum 50) are subscribed together because movers and held positions need data outside the watchlist. Chart consumers subscribe locally only to the selected symbol/range.
 - JSON persistence is appropriate for a local single-user demo. Synchronous disk writes are outside the quote pipeline but may briefly block Node during orders. Public/multi-user deployment needs authentication, durable transactional storage and independent account isolation.
-- Live provider credentials are not supplied. Protocol/normalization/recovery tests use controlled transports; actual entitlements, live exchange latency and upstream recovery remain account-dependent.
+- Live provider credentials are not supplied. Actual entitlements, live exchange latency and upstream recovery remain account-dependent.

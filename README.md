@@ -73,18 +73,13 @@ The design system is documented in [docs/design-system.md](docs/design-system.md
 ## Verification and production build
 
 ```sh
-npm test
 npm run build
-npx playwright install chromium
-npm run test:e2e
 npm start
 ```
 
 `npm start` serves the production build and WebSocket/API at **http://127.0.0.1:3001**. It also respects `.env`.
 
-Browser tests run separate servers on ports 5174/3002 with an isolated stock portfolio in `.data/e2e-stocks.json`. They cover streamed updates, chart timeframes, watchlist editing/persistence/sorting, order validation and fills, saved positions, navigation, mobile overflow, and WebSocket reconnection. Screenshots are written under `test-results/`.
-
-Live credentials are not included. Live-provider authentication and subscription behavior is unit-tested with a mocked transport; actual account entitlements and provider connectivity require your keys.
+Live credentials are not included. Actual account entitlements and provider connectivity require your keys.
 
 ## Display currency
 
@@ -94,8 +89,6 @@ The backend fetches daily ECB reference rates through [Frankfurter](https://fran
 
 ## Engineering architecture
 
-See [docs/architecture.md](docs/architecture.md) for the implemented market-data pipeline, sequenced delta protocol, per-symbol reactivity, candle aggregation, connection recovery, order lifecycle, portfolio valuation, measured validation and explicit limitations.
+See [docs/architecture.md](docs/architecture.md) for the implemented market-data pipeline, sequenced delta protocol, per-symbol reactivity, candle aggregation, connection recovery, order lifecycle, portfolio valuation, build verification and explicit limitations.
 
 Paper orders now enter a cancellable **pending** state for 700 ms before execution. Activity displays filled, cancelled and rejected requests. Pending requests surviving a server restart are cancelled; existing balances and older fills are preserved. The order API now accepts an idempotency UUID and an `input` object (see the architecture document).
-
-`npm test` includes a synthetic 10,000-event/50-symbol workload and checks that unrelated reactive consumers stay untouched. Playwright enables development-only Vue performance tracing to verify component render isolation. To inspect traces manually, start Vite with `VITE_PROFILE_RENDER=1`; production profiling remains disabled.
