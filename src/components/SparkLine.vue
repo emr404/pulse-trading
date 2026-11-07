@@ -19,7 +19,7 @@ const points = computed(() => {
     <polyline
       :points="points"
       fill="none"
-      :stroke="positive === false ? '#ed777c' : '#4fcea3'"
+      :stroke="positive === false ? '#737373' : '#171717'"
       stroke-width="1.5"
       stroke-linecap="round"
       stroke-linejoin="round"
