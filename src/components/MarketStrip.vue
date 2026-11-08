@@ -38,10 +38,6 @@
             }}<span>today</span></small
           >
         </div>
-        <SparkLine
-          :values="store.trails[asset.symbol] ?? []"
-          :positive="(store.quotes[asset.symbol]?.changePct ?? 0) >= 0"
-        />
       </div>
     </button>
     <div
@@ -56,7 +52,6 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { ArrowUpRight, ArrowDownRight } from 'lucide-vue-next'
-import SparkLine from './SparkLine.vue'
 const overviewAssets = computed(() =>
   ['SPY', 'QQQ', 'DIA', 'NVDA']
     .map((s) => store.assets.find((a) => a.symbol === s))

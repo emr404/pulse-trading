@@ -4,7 +4,7 @@
       <div class="chart-asset">
         <AssetMark :asset="store.activeAsset" />
         <div>
-          <h2>{{ store.selected }} <span>NASDAQ / NYSE</span></h2>
+          <h2>{{ store.selected }}</h2>
           <small>{{ store.activeAsset?.name || 'Loading stock…' }}</small>
         </div>
         <button
@@ -21,10 +21,7 @@
         </button>
       </div>
       <div class="chart-actions">
-        <span class="tiny-label">{{
-          store.status.mode === 'demo' ? 'SIMULATED' : store.status.provider
-        }}</span
-        ><button
+        <button
           class="icon-button"
           :aria-label="expanded ? 'Collapse chart' : 'Expand chart'"
           @click="expanded = !expanded"
@@ -60,7 +57,6 @@
           {{ range }}
         </button>
       </div>
-      <span>Candles <span class="toolbar-divider">/</span> Volume</span>
     </div>
     <div class="ohlc" aria-live="off">
       <template v-if="legend"
@@ -96,13 +92,9 @@
       </div>
     </div>
     <div class="chart-bottom">
-      <span
-        ><i class="status-dot" :class="{ amber: !store.connected }"></i
-        >{{
-          store.status.mode === 'demo'
-            ? 'Simulated historical & streaming data'
-            : 'Exchange historical & streaming data'
-        }}</span
+      <span>{{
+        store.status.mode === 'demo' ? 'Simulated prices' : 'Live prices'
+      }}</span
       ><span
         >{{ currency.currency }} <span class="toolbar-divider">·</span>
         {{ bars.length }} bars</span

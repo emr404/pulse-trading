@@ -3,14 +3,17 @@
     <button
       class="icon-button mobile-menu"
       aria-label="Open navigation"
+      :aria-expanded="shell.mobileNav"
+      aria-controls="main-navigation"
       @click="shell.mobileNav = true"
     >
       <Menu :size="20" />
     </button>
-    <div class="breadcrumbs">
-      Workspace <span>/</span> <b>{{ store.page }}</b>
-    </div>
-    <button class="search-trigger" @click="shell.picker = true">
+    <button
+      class="search-trigger"
+      aria-label="Search stocks"
+      @click="shell.picker = true"
+    >
       <Search :size="15" /><span>Search stocks, companies…</span><kbd>⌘ K</kbd>
     </button>
     <div class="topbar-right">
@@ -46,7 +49,7 @@
         :aria-expanded="shell.profile"
         @click="shell.toggleProfile"
       >
-        <span>JD</span><ChevronDown :size="12" />
+        <UserRound :size="18" />
       </button>
     </div>
     <section
@@ -65,15 +68,14 @@
       </button>
     </section>
     <section v-if="shell.profile" class="top-popover account-popover">
-      <h3>Paper workspace</h3>
-      <p>Shared paper trading account</p>
+      <h3>Shared paper account</h3>
       <strong>{{ money(store.equity) }}</strong>
     </section>
   </header>
 </template>
 
 <script setup lang="ts">
-import { Menu, Search, Bell, ChevronDown } from 'lucide-vue-next'
+import { Menu, Search, Bell, UserRound } from 'lucide-vue-next'
 import { useTerminal } from '../../stores/terminal'
 import { useCurrency } from '../../stores/currency'
 import { useShell } from '../../stores/shell'

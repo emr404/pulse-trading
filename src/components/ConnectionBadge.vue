@@ -1,5 +1,5 @@
 <template>
-  <div class="page-meta">
+  <div class="page-meta" role="status">
     <span class="connection-badge" :class="{ connected: store.connected }"
       ><i class="status-dot" :class="{ amber: !store.connected }"></i
       >{{
@@ -19,6 +19,6 @@
 
 <script setup lang="ts">
 import { useTerminal } from '../stores/terminal'
-import { money, percent, time } from '../lib/format'
+import { time } from '../lib/format'
 const store = useTerminal()
 </script>

@@ -3,6 +3,7 @@
     <button
       class="watch-select"
       :aria-label="'Select ' + asset.symbol"
+      :aria-pressed="store.selected === asset.symbol"
       @click="store.select(asset.symbol)"
     >
       <AssetMark :asset="asset" /><span class="asset-copy"
@@ -32,6 +33,7 @@
     ><button
       class="remove-stock icon-button"
       :aria-label="(all ? 'Toggle watchlist ' : 'Remove ') + asset.symbol"
+      :aria-pressed="all ? store.watchlist.includes(asset.symbol) : undefined"
       @click="store.toggleWatch(asset.symbol)"
     >
       <Star

@@ -10,8 +10,8 @@
         class="text-button"
         @click="store.page = 'Portfolio'"
       >
-        View portfolio <ArrowUpRight :size="13" /></button
-      ><span v-else class="paper-badge">SIMULATED ACCOUNT</span>
+        View portfolio <ArrowUpRight :size="13" />
+      </button>
     </div>
     <div class="portfolio-overview">
       <div>

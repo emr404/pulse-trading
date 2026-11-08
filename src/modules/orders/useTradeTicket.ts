@@ -80,6 +80,7 @@ export function useTradeTicket(): TradeTicketState {
         quantity: Number(quantity.value),
       })
       confirmation.value = `${order.side === 'buy' ? 'Bought' : 'Sold'} ${number(order.quantity)} ${order.symbol} at ${moneyUsd(order.price)} USD.`
+      store.notice = confirmation.value
     } catch (e) {
       error.value = e instanceof Error ? e.message : 'Order failed.'
     } finally {

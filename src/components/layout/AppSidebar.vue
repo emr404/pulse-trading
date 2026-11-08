@@ -9,7 +9,7 @@
         ><Activity :size="23" :stroke-width="2.4" /></span
       ><span>ledger<span class="brand-period">.</span></span></a
     >
-    <nav aria-label="Main navigation">
+    <nav id="main-navigation" aria-label="Main navigation">
       <button
         v-for="item in nav"
         :key="item.name"

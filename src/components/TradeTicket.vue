@@ -1,8 +1,7 @@
 <template>
   <section class="panel trade-panel">
     <div class="panel-heading">
-      <h2>Order ticket</h2>
-      <span class="paper-badge">PAPER</span>
+      <h2>Place an order</h2>
     </div>
     <form @submit.prevent="submit">
       <div class="trade-tabs">
@@ -29,10 +28,10 @@
       </div>
       <div class="bid-ask">
         <div>
-          <span>BID</span><b>{{ money(store.activeQuote?.bid) }}</b>
+          <span>Bid</span><b>{{ money(store.activeQuote?.bid) }}</b>
         </div>
         <div>
-          <span>ASK</span><b>{{ money(store.activeQuote?.ask) }}</b>
+          <span>Ask</span><b>{{ money(store.activeQuote?.ask) }}</b>
         </div>
       </div>
       <label for="quantity">Quantity <span>Shares</span></label>
@@ -46,6 +45,8 @@
           step="any"
           inputmode="decimal"
           required
+          :aria-invalid="!!invalid"
+          :aria-describedby="invalid ? 'quantity-error' : undefined"
         /><span>{{ store.selected }}</span>
       </div>
       <div class="quantity-shortcuts">
@@ -66,7 +67,7 @@
           }}</b>
         </div>
         <div>
-          <span>Est. fill price</span><b>{{ money(price || null) }}</b>
+          <span>Estimated price</span><b>{{ money(price || null) }}</b>
         </div>
         <div>
           <span>Commission</span><b>{{ money(0) }}</b>
@@ -95,8 +96,8 @@
       >
         Cancel pending order
       </button>
-      <p v-if="invalid" class="form-error">{{ invalid }}</p>
-      <p v-if="!store.canTrade" class="form-error">
+      <p v-if="invalid" id="quantity-error" class="form-error">{{ invalid }}</p>
+      <p v-if="!store.canTrade && !invalid" class="form-error">
         Waiting for a fresh tradable quote.
       </p>
       <p v-if="error" role="alert" class="trade-result negative">

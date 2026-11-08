@@ -1,18 +1,19 @@
 <template>
   <div class="statusbar">
+    <span>{{
+      store.status.mode === 'demo' ? 'Simulated prices' : store.status.provider
+    }}</span>
     <span
-      ><i class="status-dot" :class="{ amber: !store.connected }"></i
-      >{{ store.connected ? 'Connected' : 'Connection interrupted' }}</span
-    ><span
-      >{{ time(store.now) }} LOCAL
-      <span class="statusbar-divider">|</span> Paper trading only
-      <CircleHelp :size="11"
-    /></span>
+      ><span class="status-clock"
+        >{{ time(store.now) }} local
+        <span class="statusbar-divider">|</span></span
+      >
+      Paper trading only</span
+    >
   </div>
 </template>
 
 <script setup lang="ts">
-import { CircleHelp } from 'lucide-vue-next'
 import { useTerminal } from '../stores/terminal'
 import { time } from '../lib/format'
 const store = useTerminal()
