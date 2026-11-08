@@ -1,3 +1,16 @@
+<template>
+  <svg class="sparkline" viewBox="0 0 100 34" aria-hidden="true">
+    <polyline
+      :points="points"
+      fill="none"
+      :stroke="positive === false ? '#ed777c' : '#4fcea3'"
+      stroke-width="1.5"
+      stroke-linecap="round"
+      stroke-linejoin="round"
+    />
+  </svg>
+</template>
+
 <script setup lang="ts">
 import { computed } from 'vue'
 const props = defineProps<{ values: number[]; positive?: boolean }>()
@@ -14,15 +27,3 @@ const points = computed(() => {
     .join(' ')
 })
 </script>
-<template>
-  <svg class="sparkline" viewBox="0 0 100 34" aria-hidden="true">
-    <polyline
-      :points="points"
-      fill="none"
-      :stroke="positive === false ? '#ed777c' : '#4fcea3'"
-      stroke-width="1.5"
-      stroke-linecap="round"
-      stroke-linejoin="round"
-    />
-  </svg>
-</template>

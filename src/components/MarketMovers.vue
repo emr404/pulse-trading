@@ -1,30 +1,3 @@
-<script setup lang="ts">
-import { computed, ref } from 'vue'
-import { ArrowUpRight } from 'lucide-vue-next'
-import { useTerminal } from '../stores/terminal'
-import { money, percent } from '../lib/format'
-import SparkLine from './SparkLine.vue'
-import AssetMark from './AssetMark.vue'
-const store = useTerminal(),
-  mode = ref<'gainers' | 'losers'>('gainers')
-const movers = computed(() =>
-  store.assets
-    .filter(
-      (a) =>
-        a.sector !== 'Index ETF' &&
-        store.quotes[a.symbol]?.changePct != null &&
-        (mode.value === 'gainers'
-          ? store.quotes[a.symbol].changePct! >= 0
-          : store.quotes[a.symbol].changePct! < 0),
-    )
-    .sort((a, b) =>
-      mode.value === 'gainers'
-        ? store.quotes[b.symbol].changePct! - store.quotes[a.symbol].changePct!
-        : store.quotes[a.symbol].changePct! - store.quotes[b.symbol].changePct!,
-    )
-    .slice(0, 4),
-)
-</script>
 <template>
   <section class="panel movers-panel">
     <div class="panel-heading">
@@ -62,3 +35,31 @@ const movers = computed(() =>
     </div>
   </section>
 </template>
+
+<script setup lang="ts">
+import { computed, ref } from 'vue'
+import { ArrowUpRight } from 'lucide-vue-next'
+import { useTerminal } from '../stores/terminal'
+import { money, percent } from '../lib/format'
+import SparkLine from './SparkLine.vue'
+import AssetMark from './AssetMark.vue'
+const store = useTerminal(),
+  mode = ref<'gainers' | 'losers'>('gainers')
+const movers = computed(() =>
+  store.assets
+    .filter(
+      (a) =>
+        a.sector !== 'Index ETF' &&
+        store.quotes[a.symbol]?.changePct != null &&
+        (mode.value === 'gainers'
+          ? store.quotes[a.symbol].changePct! >= 0
+          : store.quotes[a.symbol].changePct! < 0),
+    )
+    .sort((a, b) =>
+      mode.value === 'gainers'
+        ? store.quotes[b.symbol].changePct! - store.quotes[a.symbol].changePct!
+        : store.quotes[a.symbol].changePct! - store.quotes[b.symbol].changePct!,
+    )
+    .slice(0, 4),
+)
+</script>

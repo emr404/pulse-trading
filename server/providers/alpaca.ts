@@ -9,25 +9,7 @@ import {
   type Range,
 } from '../../shared/types.js'
 import type { MarketProvider } from './types.js'
-const barSchema = z.object({
-  t: z.string(),
-  o: z.number().positive(),
-  h: z.number().positive(),
-  l: z.number().positive(),
-  c: z.number().positive(),
-  v: z.number().nonnegative(),
-})
-const eventSchema = z.object({
-  T: z.string(),
-  S: z.string().optional(),
-  msg: z.string().optional(),
-  code: z.number().optional(),
-  p: z.number().optional(),
-  s: z.number().optional(),
-  bp: z.number().optional(),
-  ap: z.number().optional(),
-  t: z.string().optional(),
-})
+import { barSchema, eventSchema, type AlpacaEvent } from './schemas.js'
 export class AlpacaProvider implements MarketProvider {
   private processor = new EventProcessor()
   private indices = new Map<string, number>()
@@ -62,18 +44,18 @@ export class AlpacaProvider implements MarketProvider {
       },
     }
   }
-  snapshot() {
+  snapshot(): MarketSnapshot {
     return this.state
   }
-  start(onUpdate: () => void) {
+  start(onUpdate: () => void): void {
     this.onUpdate = onUpdate
     void this.loadPreviousCloses()
     this.connect()
   }
-  private headers() {
+  private headers(): Record<string, string> {
     return { 'APCA-API-KEY-ID': this.key, 'APCA-API-SECRET-KEY': this.secret }
   }
-  private async loadPreviousCloses() {
+  private async loadPreviousCloses(): Promise<void> {
     // Daily history provides an actual prior close; unknown changes remain null.
     await Promise.all(
       this.state.assets.map(async (a) => {
@@ -92,7 +74,7 @@ export class AlpacaProvider implements MarketProvider {
       }),
     )
   }
-  private connect() {
+  private connect(): void {
     if (this.stopped || this.failed) return
     this.state.status.state = this.attempts ? 'reconnecting' : 'connecting'
     this.onUpdate()
@@ -120,13 +102,16 @@ export class AlpacaProvider implements MarketProvider {
     })
     socket.on('message', (raw) => {
       if (this.stopped || this.ws !== socket) return
-      let messages: unknown
+      let messages: AlpacaEvent[]
       try {
-        messages = JSON.parse(raw.toString())
+        messages = z.array(eventSchema).parse(JSON.parse(raw.toString()))
       } catch {
+        this.state.status.message =
+          'Invalid market data received. Reconnecting.'
+        this.onUpdate()
+        socket.close()
         return
       }
-      if (!Array.isArray(messages)) return
       for (const item of messages) {
         const parsed = eventSchema.safeParse(item)
         if (!parsed.success) continue
@@ -239,7 +224,7 @@ export class AlpacaProvider implements MarketProvider {
     this.cache.set(cacheKey, { at: Date.now(), bars })
     return bars
   }
-  stop() {
+  stop(): void {
     this.stopped = true
     clearTimeout(this.retry)
     clearTimeout(this.authenticationTimer)

@@ -1,43 +1,58 @@
 export { api } from './api'
 import { useCurrency } from '../stores/currency'
-export function money(n: number | null | undefined) {
-  if (n == null || !Number.isFinite(n)) return '—'
+import type { Currency } from '../../shared/currency'
+
+const currencyFormats = new Map<Currency, Intl.NumberFormat>()
+const decimalFormat = new Intl.NumberFormat('en-US', {
+  maximumFractionDigits: 4,
+})
+const compactFormat = new Intl.NumberFormat('en-US', {
+  notation: 'compact',
+  maximumFractionDigits: 2,
+})
+const timeFormat = new Intl.DateTimeFormat('en-US', {
+  hour12: false,
+  hour: '2-digit',
+  minute: '2-digit',
+  second: '2-digit',
+})
+
+function currencyFormat(currency: Currency): Intl.NumberFormat {
+  let formatter = currencyFormats.get(currency)
+  if (!formatter) {
+    formatter = new Intl.NumberFormat('en-US', {
+      style: 'currency',
+      currency,
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    })
+    currencyFormats.set(currency, formatter)
+  }
+  return formatter
+}
+
+export function money(value: number | null | undefined): string {
+  if (value == null || !Number.isFinite(value)) return '—'
   const display = useCurrency()
-  return new Intl.NumberFormat('en-US', {
-    style: 'currency',
-    currency: display.currency,
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  }).format(n * display.rate)
+  return currencyFormat(display.currency).format(value * display.rate)
 }
-export const moneyUsd = (n: number) =>
-  new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(
-    n,
-  )
-export const number = (n: number | null | undefined) =>
-  n == null
-    ? '—'
-    : new Intl.NumberFormat('en-US', { maximumFractionDigits: 4 }).format(n)
-export const compact = (n: number) =>
-  new Intl.NumberFormat('en-US', {
-    notation: 'compact',
-    maximumFractionDigits: 2,
-  }).format(n)
-export const percent = (n: number | null | undefined) =>
-  n == null ? '—' : `${n >= 0 ? '+' : ''}${n.toFixed(2)}%`
-export const time = (n: number | null) =>
-  n ? new Date(n).toLocaleTimeString('en-US', { hour12: false }) : '—'
-export function readLocal<T>(key: string, fallback: T): T {
-  try {
-    return (JSON.parse(localStorage.getItem(key) ?? 'null') as T) ?? fallback
-  } catch {
-    return fallback
-  }
+export function moneyUsd(value: number): string {
+  return Number.isFinite(value) ? currencyFormat('USD').format(value) : '—'
 }
-export function writeLocal(key: string, value: unknown) {
-  try {
-    localStorage.setItem(key, JSON.stringify(value))
-  } catch {
-    /* Private browsing may disable storage. */
-  }
+export function number(value: number | null | undefined): string {
+  return value != null && Number.isFinite(value)
+    ? decimalFormat.format(value)
+    : '—'
+}
+export function compact(value: number): string {
+  return Number.isFinite(value) ? compactFormat.format(value) : '—'
+}
+export function percent(value: number | null | undefined): string {
+  if (value == null || !Number.isFinite(value)) return '—'
+  return `${value >= 0 ? '+' : ''}${value.toFixed(2)}%`
+}
+export function time(value: number | null): string {
+  if (value === null || !Number.isFinite(value)) return '—'
+  const date = new Date(value)
+  return Number.isNaN(date.getTime()) ? '—' : timeFormat.format(date)
 }

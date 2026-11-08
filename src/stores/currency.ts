@@ -12,7 +12,7 @@ export const useCurrency = defineStore('currency', () => {
   try {
     saved = localStorage.getItem('pulse:currency')
   } catch {
-    /* Storage unavailable. */
+    // Browser storage restrictions must not disable currency selection.
   }
   const selected = ref<Currency>(
     CURRENCIES.includes(saved as Currency) ? (saved as Currency) : 'USD',
@@ -34,14 +34,23 @@ export const useCurrency = defineStore('currency', () => {
         : `${selected.value} unavailable · Displaying USD`
     return `${currency.value} · FX ${exchange.value.date}${exchange.value.cached || error.value ? ' (cached)' : ''}`
   })
-  async function refresh() {
+  let controller: AbortController | undefined
+  function stop(): void {
+    controller?.abort()
+  }
+  async function refresh(): Promise<void> {
     if (loading.value) return
     loading.value = true
     error.value = ''
+    controller = new AbortController()
+    const signal = AbortSignal.any([
+      controller.signal,
+      AbortSignal.timeout(10000),
+    ])
     try {
-      exchange.value = exchangeRatesSchema.parse(
-        await api<unknown>('/api/exchange-rates'),
-      )
+      exchange.value = await api('/api/exchange-rates', exchangeRatesSchema, {
+        signal,
+      })
     } catch {
       error.value = 'Exchange rates unavailable. Try again shortly.'
     } finally {
@@ -52,8 +61,18 @@ export const useCurrency = defineStore('currency', () => {
     try {
       localStorage.setItem('pulse:currency', value)
     } catch {
-      /* Storage unavailable. */
+      // Browser storage restrictions must not disable currency selection.
     }
   })
-  return { selected, exchange, loading, error, currency, rate, note, refresh }
+  return {
+    selected,
+    exchange,
+    loading,
+    error,
+    currency,
+    rate,
+    note,
+    refresh,
+    stop,
+  }
 })

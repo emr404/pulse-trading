@@ -60,10 +60,10 @@ export class PortfolioStore {
       ? portfolioSchema.parse(JSON.parse(readFileSync(file, 'utf8')))
       : freshPortfolio()
   }
-  get() {
+  get(): Portfolio {
     return structuredClone(this.value)
   }
-  save(value: Portfolio) {
+  save(value: Portfolio): Portfolio {
     const validated = portfolioSchema.parse(value)
     writeFileSync(`${this.file}.tmp`, JSON.stringify(validated, null, 2), {
       mode: 0o600,

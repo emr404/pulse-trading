@@ -3,8 +3,8 @@ import { ExchangeRateService } from './exchange-rates.js'
 import express from 'express'
 import { z } from 'zod'
 import { MarketHub } from './market-hub.js'
-import { OrderManager } from './order-manager.js'
-import type { ServerMessage } from '../shared/protocol.js'
+import { OrderManager, OrderPersistenceError } from './order-manager.js'
+import { clientMessageSchema, type ServerMessage } from '../shared/protocol.js'
 import { resolve } from 'node:path'
 import { WebSocketServer, WebSocket } from 'ws'
 import {
@@ -181,12 +181,22 @@ app.use(
     _next: express.NextFunction,
   ) => {
     console.error(error.message)
-    res.status(error instanceof SyntaxError ? 400 : 500).json({
-      error:
-        error instanceof SyntaxError
-          ? 'Invalid JSON.'
-          : 'Unable to complete request. Your order was not accepted.',
-    })
+    res
+      .status(
+        error instanceof OrderPersistenceError
+          ? 503
+          : error instanceof SyntaxError
+            ? 400
+            : 500,
+      )
+      .json({
+        error:
+          error instanceof OrderPersistenceError
+            ? error.message
+            : error instanceof SyntaxError
+              ? 'Invalid JSON.'
+              : 'Unable to complete request. Check Activity before retrying an order.',
+      })
   },
 )
 const server = app.listen(
@@ -204,18 +214,24 @@ const wss = new WebSocketServer({
   verifyClient: (info: { origin: string }) => originAllowed(info.origin),
 })
 const hub = new MarketHub(() => provider.snapshot())
-function sendEncoded(socket: WebSocket, payload: string) {
+function sendEncoded(socket: WebSocket, payload: string): void {
   if (socket.readyState !== WebSocket.OPEN) return
   if (socket.bufferedAmount > 1000000) {
     socket.close(1013, 'Slow consumer; reconnect for snapshot')
     return
   }
-  socket.send(payload)
+  try {
+    socket.send(payload, (error) => {
+      if (error) socket.terminate()
+    })
+  } catch {
+    socket.terminate()
+  }
 }
-function send(socket: WebSocket, message: ServerMessage) {
+function send(socket: WebSocket, message: ServerMessage): void {
   sendEncoded(socket, JSON.stringify(message))
 }
-function broadcast(message: ServerMessage) {
+function broadcast(message: ServerMessage): void {
   const payload = JSON.stringify(message)
   for (const client of wss.clients) sendEncoded(client, payload)
 }
@@ -228,14 +244,12 @@ wss.on('connection', (socket) => {
   snapshot()
   socket.on('message', (raw) => {
     try {
-      const request: unknown = JSON.parse(raw.toString())
-      if (
-        request &&
-        typeof request === 'object' &&
-        'type' in request &&
-        (request.type === 'subscribe' || request.type === 'resync')
-      )
-        snapshot()
+      const request = clientMessageSchema.safeParse(JSON.parse(raw.toString()))
+      if (!request.success) {
+        socket.close(1008, 'Invalid subscription')
+        return
+      }
+      snapshot()
     } catch {
       socket.close(1008, 'Invalid subscription')
     }
@@ -257,7 +271,7 @@ const heartbeat = setInterval(
     }),
   10000,
 )
-function stop() {
+function stop(): void {
   clearInterval(updates)
   clearInterval(heartbeat)
   provider.stop()

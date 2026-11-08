@@ -10,7 +10,7 @@ import {
   type CandleUpdate,
   type MarketFrame,
 } from '../shared/protocol.js'
-/** Consumes every normalized price before rendering cadence is applied. */
+/** Capture before batching so intermediate price extremes survive in candle OHLC. */
 export class MarketHub {
   readonly session = randomUUID()
   sequence = 0
@@ -21,7 +21,7 @@ export class MarketHub {
   private statusChanged = true
   private statusKey = ''
   constructor(private source: () => MarketSnapshot) {}
-  capture() {
+  capture(): void {
     const state = this.source()
     const key = `${state.status.state}:${state.status.message}`
     if (key !== this.statusKey) {

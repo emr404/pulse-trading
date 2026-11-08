@@ -1,16 +1,3 @@
-<script setup lang="ts">
-import { computed } from 'vue'
-import { ArrowUpRight, ArrowDownRight } from 'lucide-vue-next'
-import SparkLine from './SparkLine.vue'
-const overviewAssets = computed(() =>
-  ['SPY', 'QQQ', 'DIA', 'NVDA']
-    .map((s) => store.assets.find((a) => a.symbol === s))
-    .filter((a) => a !== undefined),
-)
-import { useTerminal } from '../stores/terminal'
-import { money, percent, time } from '../lib/format'
-const store = useTerminal()
-</script>
 <template>
   <section class="market-strip" aria-label="Market overview">
     <button
@@ -65,3 +52,17 @@ const store = useTerminal()
     ></div>
   </section>
 </template>
+
+<script setup lang="ts">
+import { computed } from 'vue'
+import { ArrowUpRight, ArrowDownRight } from 'lucide-vue-next'
+import SparkLine from './SparkLine.vue'
+const overviewAssets = computed(() =>
+  ['SPY', 'QQQ', 'DIA', 'NVDA']
+    .map((s) => store.assets.find((a) => a.symbol === s))
+    .filter((a) => a !== undefined),
+)
+import { useTerminal } from '../stores/terminal'
+import { money, percent, time } from '../lib/format'
+const store = useTerminal()
+</script>

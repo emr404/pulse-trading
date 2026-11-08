@@ -1,8 +1,3 @@
-<script setup lang="ts">
-import { useTerminal } from '../stores/terminal'
-import { money, percent, time } from '../lib/format'
-const store = useTerminal()
-</script>
 <template>
   <div class="page-meta">
     <span class="connection-badge" :class="{ connected: store.connected }"
@@ -21,3 +16,9 @@ const store = useTerminal()
     >
   </div>
 </template>
+
+<script setup lang="ts">
+import { useTerminal } from '../stores/terminal'
+import { money, percent, time } from '../lib/format'
+const store = useTerminal()
+</script>

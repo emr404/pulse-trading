@@ -6,6 +6,8 @@ import {
   onUnmounted,
   computed,
   type Ref,
+  type ComputedRef,
+  type ShallowRef,
 } from 'vue'
 import {
   createChart,
@@ -26,13 +28,24 @@ import {
 import { useCurrency } from '../../stores/currency'
 import { api, money } from '../../lib/format'
 import { useMarket } from '../market/store'
+import { candleResponseSchema } from '../../../shared/api'
 import { candleSchema, type CandleUpdate } from '../../../shared/protocol'
 import { mergeLiveCandle } from './aggregate'
-export function useStockChart(selection: {
+export interface ChartSelection {
   symbol: Ref<string>
   range: Ref<Range>
   mode: Ref<MarketMode>
-}) {
+}
+export interface StockChart {
+  container: Ref<HTMLDivElement | undefined>
+  loading: Ref<boolean>
+  error: Ref<string>
+  expanded: Ref<boolean>
+  bars: ShallowRef<Candle[]>
+  legend: ComputedRef<Candle | undefined>
+  load(): Promise<void>
+}
+export function useStockChart(selection: ChartSelection): StockChart {
   const market = useMarket()
   const currency = useCurrency()
   const container = ref<HTMLDivElement>(),
@@ -51,7 +64,7 @@ export function useStockChart(selection: {
   const legend = computed(
     () => hover.value ?? lastBar.value ?? bars.value.at(-1),
   )
-  async function load() {
+  async function load(): Promise<void> {
     if (!chart || !selection.symbol.value) return
     abort?.abort()
     abort = new AbortController()
@@ -66,8 +79,9 @@ export function useStockChart(selection: {
     candles?.setData([])
     volume?.setData([])
     try {
-      const data = await api<{ candles: Candle[]; live: CandleUpdate[] }>(
+      const data = await api(
         `/api/candles?symbol=${encodeURIComponent(symbol)}&range=${range}`,
+        candleResponseSchema,
         { signal },
       )
       if (signal.aborted) return
@@ -196,7 +210,7 @@ export function useStockChart(selection: {
   let animation = 0
   const pending = new Map<number, CandleUpdate>()
   const lastBar = shallowRef<Candle | null>(null)
-  function flush() {
+  function flush(): void {
     animation = 0
     if (
       loading.value ||
@@ -206,35 +220,44 @@ export function useStockChart(selection: {
       loadedRange !== selection.range.value
     )
       return
-    for (const update of [...pending.values()].sort(
-      (a, b) => a.candle.time - b.candle.time,
-    )) {
-      const raw = update.candle,
-        last = bars.value.at(-1)
-      const seconds = RANGE_CONFIG[selection.range.value].seconds
-      const live =
-        last &&
-        Math.floor(raw.time / seconds) === Math.floor(last.time / seconds)
-          ? { ...raw, time: last.time }
-          : raw
-      if (last && live.time < last.time) continue
-      const merged = mergeLiveCandle(last, live, liveVolumes.get(raw.time) ?? 0)
-      liveVolumes.set(raw.time, live.volume)
-      if (liveVolumes.size > 1000)
-        liveVolumes.delete(liveVolumes.keys().next().value!)
-      if (last?.time === live.time) bars.value[bars.value.length - 1] = merged
-      else {
-        bars.value = [...bars.value.slice(-999), merged]
+    try {
+      for (const update of [...pending.values()].sort(
+        (a, b) => a.candle.time - b.candle.time,
+      )) {
+        const raw = update.candle,
+          last = bars.value.at(-1)
+        const seconds = RANGE_CONFIG[selection.range.value].seconds
+        const live =
+          last &&
+          Math.floor(raw.time / seconds) === Math.floor(last.time / seconds)
+            ? { ...raw, time: last.time }
+            : raw
+        if (last && live.time < last.time) continue
+        const merged = mergeLiveCandle(
+          last,
+          live,
+          liveVolumes.get(raw.time) ?? 0,
+        )
+        liveVolumes.set(raw.time, live.volume)
+        if (liveVolumes.size > 1000)
+          liveVolumes.delete(liveVolumes.keys().next().value!)
+        if (last?.time === live.time) bars.value[bars.value.length - 1] = merged
+        else {
+          bars.value = [...bars.value.slice(-999), merged]
+        }
+        lastBar.value = merged
+        candles.update({ ...merged, time: merged.time as UTCTimestamp })
+        volume.update({
+          time: merged.time as UTCTimestamp,
+          value: merged.volume,
+          color: merged.close >= merged.open ? '#2b745f66' : '#864a5366',
+        })
       }
-      lastBar.value = merged
-      candles.update({ ...merged, time: merged.time as UTCTimestamp })
-      volume.update({
-        time: merged.time as UTCTimestamp,
-        value: merged.volume,
-        color: merged.close >= merged.open ? '#2b745f66' : '#864a5366',
-      })
+      pending.clear()
+    } catch {
+      pending.clear()
+      error.value = 'Unable to update the chart. Reload chart data to retry.'
     }
-    pending.clear()
   }
   watch(
     () => [selection.symbol.value, selection.range.value],
@@ -261,7 +284,7 @@ export function useStockChart(selection: {
     () => market.revision,
     () => void load(),
   )
-  function escape(event: KeyboardEvent) {
+  function escape(event: KeyboardEvent): void {
     if (event.key === 'Escape') expanded.value = false
   }
   onMounted(() => document.addEventListener('keydown', escape))

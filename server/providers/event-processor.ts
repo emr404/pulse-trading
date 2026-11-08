@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import type { AlpacaEvent } from './schemas.js'
 import type { Quote } from '../../shared/types.js'
 const schema = z.discriminatedUnion('T', [
   z.object({
@@ -25,7 +26,7 @@ export class EventProcessor {
   private seen = new Set<string>()
   readonly metrics = { accepted: 0, duplicate: 0, invalid: 0, delayed: 0 }
   process(
-    input: unknown,
+    input: AlpacaEvent,
     existing: Quote | undefined,
     previousClose: number | null,
     now = Date.now(),

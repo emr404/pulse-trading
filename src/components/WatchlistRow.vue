@@ -1,12 +1,3 @@
-<script setup lang="ts">
-import { X, Star } from 'lucide-vue-next'
-import type { Asset } from '../../shared/types'
-import { useTerminal } from '../stores/terminal'
-import { money, percent } from '../lib/format'
-import AssetMark from './AssetMark.vue'
-defineProps<{ asset: Asset; all?: boolean }>()
-const store = useTerminal()
-</script>
 <template>
   <div class="watch-row" :class="{ selected: store.selected === asset.symbol }">
     <button
@@ -51,3 +42,13 @@ const store = useTerminal()
     </button>
   </div>
 </template>
+
+<script setup lang="ts">
+import { X, Star } from 'lucide-vue-next'
+import type { Asset } from '../../shared/types'
+import { useTerminal } from '../stores/terminal'
+import { money, percent } from '../lib/format'
+import AssetMark from './AssetMark.vue'
+defineProps<{ asset: Asset; all?: boolean }>()
+const store = useTerminal()
+</script>

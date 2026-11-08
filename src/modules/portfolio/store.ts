@@ -20,7 +20,7 @@ export const usePortfolio = defineStore('portfolio', () => {
         (p) => !market.quotes[p.symbol] || market.stale[p.symbol],
       ) ?? false,
   )
-  function apply(input: unknown) {
+  function apply(input: Portfolio): boolean {
     const parsed = portfolioMessageSchema.safeParse(input)
     if (parsed.success) portfolio.value = parsed.data
     return parsed.success

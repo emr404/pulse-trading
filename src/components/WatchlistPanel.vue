@@ -1,40 +1,5 @@
-<script setup lang="ts">
-import { computed, ref } from 'vue'
-import { Plus, ArrowDownUp, X, Star } from 'lucide-vue-next'
-import { useCurrency } from '../stores/currency'
-import { useTerminal } from '../stores/terminal'
-import { money, percent } from '../lib/format'
-import WatchlistRow from './WatchlistRow.vue'
-import AssetPicker from './AssetPicker.vue'
-const currency = useCurrency()
-const props = defineProps<{ all?: boolean }>()
-const store = useTerminal(),
-  picker = ref(false),
-  sort = ref<'default' | 'price' | 'change'>('default'),
-  ascending = ref(false)
-const rows = computed(() => {
-  const items = store.assets.filter(
-    (a) => props.all || store.watchlist.includes(a.symbol),
-  )
-  if (sort.value === 'default') return items
-  const sorted = [...items].sort(
-    (a, b) =>
-      ((sort.value === 'price'
-        ? store.quotes[a.symbol]?.price
-        : store.quotes[a.symbol]?.changePct) ?? 0) -
-      ((sort.value === 'price'
-        ? store.quotes[b.symbol]?.price
-        : store.quotes[b.symbol]?.changePct) ?? 0),
-  )
-  return ascending.value ? sorted : sorted.reverse()
-})
-function setSort(value: 'price' | 'change') {
-  ascending.value = sort.value === value ? !ascending.value : false
-  sort.value = value
-}
-</script>
 <template>
-  <section class="panel watchlist-panel">
+  <section class="panel watchlist-panel" :class="{ 'watchlist-expanded': expanded }">
     <div class="panel-heading">
       <h2>
         {{ all ? 'All markets' : 'Watchlist' }}
@@ -89,3 +54,38 @@ function setSort(value: 'price' | 'change') {
   </section>
   <AssetPicker v-if="picker" watch-mode @close="picker = false" />
 </template>
+
+<script setup lang="ts">
+import { computed, ref } from 'vue'
+import { Plus, ArrowDownUp, Star } from 'lucide-vue-next'
+import { useCurrency } from '../stores/currency'
+import { useTerminal } from '../stores/terminal'
+import WatchlistRow from './WatchlistRow.vue'
+import AssetPicker from './AssetPicker.vue'
+const currency = useCurrency()
+const props = defineProps<{ all?: boolean; expanded?: boolean }>()
+const store = useTerminal(),
+  picker = ref(false),
+  sort = ref<'default' | 'price' | 'change'>('default'),
+  ascending = ref(false)
+const rows = computed(() => {
+  const items = store.assets.filter(
+    (a) => props.all || store.watchlist.includes(a.symbol),
+  )
+  if (sort.value === 'default') return items
+  const sorted = [...items].sort(
+    (a, b) =>
+      ((sort.value === 'price'
+        ? store.quotes[a.symbol]?.price
+        : store.quotes[a.symbol]?.changePct) ?? 0) -
+      ((sort.value === 'price'
+        ? store.quotes[b.symbol]?.price
+        : store.quotes[b.symbol]?.changePct) ?? 0),
+  )
+  return ascending.value ? sorted : sorted.reverse()
+})
+function setSort(value: 'price' | 'change'): void {
+  ascending.value = sort.value === value ? !ascending.value : false
+  sort.value = value
+}
+</script>

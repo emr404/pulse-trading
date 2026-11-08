@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import { portfolioMessageSchema } from './portfolio-schema.js'
 import type {
   Asset,
   Candle,
@@ -89,7 +90,7 @@ export type ServerMessage =
   | { type: 'portfolio'; data: Portfolio }
   | { type: 'heartbeat'; session: string; sequence: number }
 export const STALE_AFTER_MS = 60000
-export function validQuote(q: Quote, now = Date.now()) {
+export function validQuote(q: Quote, now = Date.now()): boolean {
   return (
     quoteSchema.safeParse(q).success &&
     q.updatedAt <= now + 5000 &&
@@ -97,10 +98,24 @@ export function validQuote(q: Quote, now = Date.now()) {
     (q.priceAt === undefined || q.priceAt <= now + 5000)
   )
 }
-export function staleQuote(q: Quote | undefined, now: number) {
+export function staleQuote(q: Quote | undefined, now: number): boolean {
   return (
     !q ||
     now - (q.priceAt ?? q.updatedAt) > STALE_AFTER_MS ||
     (q.priceAt ?? q.updatedAt) > now + 5000
   )
 }
+
+export const clientMessageSchema = z.object({
+  type: z.enum(['subscribe', 'resync']),
+})
+
+export const serverMessageSchema = z.union([
+  marketFrameSchema,
+  z.object({ type: z.literal('portfolio'), data: portfolioMessageSchema }),
+  z.object({
+    type: z.literal('heartbeat'),
+    session: z.string().min(1),
+    sequence: z.number().int().nonnegative(),
+  }),
+])

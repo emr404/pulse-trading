@@ -1,23 +1,26 @@
-import { marketFrameSchema, type MarketFrame } from '../../../shared/protocol'
-import type { FeedStatus } from '../../../shared/types'
+import {
+  serverMessageSchema,
+  type ServerMessage,
+  type MarketFrame,
+} from '../../../shared/protocol'
+import type { FeedStatus, Portfolio } from '../../../shared/types'
 interface Socket {
   readyState: number
   onopen: ((event: Event) => void) | null
   onclose: ((event: CloseEvent) => void) | null
   onerror: ((event: Event) => void) | null
-  onmessage: ((event: MessageEvent) => void) | null
+  onmessage: ((event: MessageEvent<string>) => void) | null
   send(data: string): void
   close(): void
 }
 interface Options {
   socket(): Socket
   frame(frame: MarketFrame): void
-  portfolio(data: unknown): void
+  portfolio(data: Portfolio): void
   state(state: FeedStatus['state']): void
   unsynchronized(): void
   online(): boolean
 }
-/** Owns sequencing, retry and health independently of Vue and browser globals. */
 export class MarketConnection {
   private socket?: Socket
   private retry?: ReturnType<typeof setTimeout>
@@ -32,7 +35,7 @@ export class MarketConnection {
   private openedAt = 0
   readonly metrics = { invalid: 0, duplicate: 0, gaps: 0 }
   constructor(private options: Options) {}
-  start() {
+  start(): void {
     if (!this.stopped) return
     this.stopped = false
     this.connect()
@@ -44,7 +47,7 @@ export class MarketConnection {
         this.socket.close()
     }, 1000)
   }
-  private connect() {
+  private connect(): void {
     if (this.stopped) return
     if (!this.options.online()) {
       this.options.state('disconnected')
@@ -52,16 +55,36 @@ export class MarketConnection {
       return
     }
     this.options.state(this.attempts ? 'reconnecting' : 'connecting')
-    const socket = (this.socket = this.options.socket())
+    let socket: Socket
+    try {
+      socket = this.options.socket()
+      this.socket = socket
+    } catch {
+      this.options.unsynchronized()
+      this.options.state('reconnecting')
+      this.schedule()
+      return
+    }
     this.deadline = setTimeout(() => socket.close(), 10000)
     socket.onopen = () => {
       if (this.socket !== socket || this.stopped) return
       this.openedAt = this.lastMessage = Date.now()
-      socket.send(JSON.stringify({ type: 'subscribe' }))
+      try {
+        socket.send(JSON.stringify({ type: 'subscribe' }))
+      } catch {
+        socket.close()
+      }
     }
     socket.onmessage = (event) => {
       if (this.socket !== socket || this.stopped) return
-      this.receive(event.data)
+      try {
+        this.receive(event.data)
+      } catch {
+        this.synced = false
+        this.options.unsynchronized()
+        this.options.state('reconnecting')
+        socket.close()
+      }
     }
     socket.onerror = () => socket.close()
     socket.onclose = () => {
@@ -75,44 +98,46 @@ export class MarketConnection {
       this.schedule()
     }
   }
-  private schedule() {
+  private schedule(): void {
     clearTimeout(this.retry)
     const delay = Math.min(30000, 1000 * 2 ** Math.min(this.attempts++, 5))
     this.retry = setTimeout(() => this.connect(), delay)
   }
-  private resync() {
+  private resync(): void {
     if (!this.synced) return
     this.metrics.gaps++
     this.synced = false
     this.options.unsynchronized()
     this.options.state('reconnecting')
-    this.socket?.send(JSON.stringify({ type: 'resync' }))
+    try {
+      this.socket?.send(JSON.stringify({ type: 'resync' }))
+    } catch {
+      this.socket?.close()
+      return
+    }
     clearTimeout(this.deadline)
     this.deadline = setTimeout(() => this.socket?.close(), 10000)
   }
-  private receive(raw: unknown) {
-    let value: unknown
+  private receive(raw: string): void {
+    let value: ServerMessage
     try {
-      value = JSON.parse(String(raw))
+      const result = serverMessageSchema.safeParse(JSON.parse(raw))
+      if (!result.success) {
+        this.metrics.invalid++
+        this.resync()
+        return
+      }
+      value = result.data
     } catch {
       this.metrics.invalid++
+      this.resync()
       return
     }
-    if (!value || typeof value !== 'object' || !('type' in value)) {
-      this.metrics.invalid++
-      return
-    }
-    if (value.type === 'portfolio' && 'data' in value) {
+    if (value.type === 'portfolio') {
       this.options.portfolio(value.data)
       return
     }
-    if (
-      value.type === 'heartbeat' &&
-      'session' in value &&
-      'sequence' in value &&
-      typeof value.session === 'string' &&
-      typeof value.sequence === 'number'
-    ) {
+    if (value.type === 'heartbeat') {
       this.lastMessage = Date.now()
       if (this.synced && Date.now() - this.openedAt > 10000) this.attempts = 0
       if (
@@ -122,10 +147,8 @@ export class MarketConnection {
         this.resync()
       return
     }
-    const result = marketFrameSchema.safeParse(value)
     if (
-      !result.success ||
-      result.data.quotes.some(
+      value.quotes.some(
         (q) =>
           q.updatedAt > Date.now() + 5000 ||
           q.quoteAt > Date.now() + 5000 ||
@@ -136,7 +159,7 @@ export class MarketConnection {
       this.resync()
       return
     }
-    const frame = result.data
+    const frame = value
     this.lastMessage = Date.now()
     if (frame.type === 'snapshot') {
       if (
@@ -170,13 +193,13 @@ export class MarketConnection {
     if (Date.now() - this.openedAt > 10000) this.attempts = 0
     this.options.frame(frame)
   }
-  reconnect() {
+  reconnect(): void {
     if (this.stopped) return
     clearTimeout(this.retry)
     if (this.socket && this.socket.readyState < 2) this.socket.close()
     else this.connect()
   }
-  stop() {
+  stop(): void {
     this.stopped = true
     clearTimeout(this.retry)
     clearTimeout(this.deadline)

@@ -1,21 +1,3 @@
-<script setup lang="ts">
-import { ArrowDownLeft, ArrowUpRight, History } from 'lucide-vue-next'
-import { ref } from 'vue'
-import { useOrders } from '../modules/orders/store'
-import { useTerminal } from '../stores/terminal'
-import { money, number } from '../lib/format'
-defineProps<{ compact?: boolean }>()
-const store = useTerminal()
-const orders = useOrders()
-const error = ref('')
-async function cancel(id: string) {
-  try {
-    await orders.cancel(id)
-  } catch {
-    error.value = 'Could not cancel. Refresh the order status before retrying.'
-  }
-}
-</script>
 <template>
   <section class="panel activity-panel">
     <div class="panel-heading">
@@ -30,9 +12,7 @@ async function cancel(id: string) {
     </div>
     <p v-if="error" role="alert" class="form-error">{{ error }}</p>
     <div
-      v-for="request in (store.portfolio?.requests ?? []).filter(
-        (r) => r.state !== 'filled',
-      )"
+      v-for="request in requests"
       :key="request.id"
       class="order-lifecycle-row"
     >
@@ -98,10 +78,32 @@ async function cancel(id: string) {
         </tbody>
       </table>
       <div v-else class="empty-state">
-        <History :size="23" />No transactions yet.<small
-          >Your simulated trades will appear here.</small
-        >
+        <History :size="23" />No transactions yet.
       </div>
     </div>
   </section>
 </template>
+
+<script setup lang="ts">
+import { ArrowDownLeft, ArrowUpRight, History } from 'lucide-vue-next'
+import { ref, computed } from 'vue'
+import { useOrders } from '../modules/orders/store'
+import { useTerminal } from '../stores/terminal'
+import { money, number } from '../lib/format'
+defineProps<{ compact?: boolean }>()
+const store = useTerminal()
+const orders = useOrders()
+const error = ref('')
+const requests = computed(() =>
+  (store.portfolio?.requests ?? []).filter(
+    (request) => request.state !== 'filled',
+  ),
+)
+async function cancel(id: string): Promise<void> {
+  try {
+    await orders.cancel(id)
+  } catch {
+    error.value = 'Could not cancel. Refresh the order status before retrying.'
+  }
+}
+</script>

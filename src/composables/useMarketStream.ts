@@ -3,7 +3,7 @@ import { onMounted, onUnmounted } from 'vue'
 import { MarketConnection } from '../modules/market/connection'
 import { useMarket } from '../modules/market/store'
 import { usePortfolio } from '../modules/portfolio/store'
-export function useMarketStream() {
+export function useMarketStream(): { reconnect(): void } {
   const market = useMarket(),
     portfolio = usePortfolio()
   const connection = new MarketConnection({

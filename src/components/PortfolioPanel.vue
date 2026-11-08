@@ -1,17 +1,3 @@
-<script setup lang="ts">
-import { computed } from 'vue'
-import { ArrowUpRight, Wallet } from 'lucide-vue-next'
-import { useTerminal } from '../stores/terminal'
-import { money, number, percent } from '../lib/format'
-import AssetMark from './AssetMark.vue'
-defineProps<{ detailed?: boolean }>()
-const store = useTerminal()
-const allocation = computed(() =>
-  store.equity > 0
-    ? Math.min(100, (store.marketValue / store.equity) * 100)
-    : 0,
-)
-</script>
 <template>
   <section class="panel portfolio-panel">
     <div class="panel-heading">
@@ -79,7 +65,7 @@ const allocation = computed(() =>
             <td>
               <button
                 class="table-asset"
-                @click="store.select(position.symbol)"
+                @click="store.openStock(position.symbol)"
               >
                 <AssetMark
                   :asset="
@@ -123,23 +109,35 @@ const allocation = computed(() =>
       <div v-else class="portfolio-empty">
         <Wallet :size="23" />
         <div>
-          <b>Your first position starts here.</b
+          <b>No holdings.</b
           ><small
             >You have {{ money(store.portfolio?.cash) }} in virtual buying
             power.</small
           >
         </div>
-        <button class="secondary-button" @click="store.page = 'Overview'">
+        <button class="secondary-button" @click="store.page = 'Markets'">
           Explore stocks <ArrowUpRight :size="13" />
         </button>
       </div>
     </div>
-    <div class="panel-footnote">
-      {{
-        store.valuationEstimated
-          ? 'Some prices are stale or unavailable. Valuation uses the last quote or average cost.'
-          : 'Market values update with the price stream. All positions are simulated.'
-      }}
+    <div v-if="store.valuationEstimated" class="panel-footnote">
+      Some prices are stale or unavailable. Valuation uses the last quote or
+      average cost.
     </div>
   </section>
 </template>
+
+<script setup lang="ts">
+import { computed } from 'vue'
+import { ArrowUpRight, Wallet } from 'lucide-vue-next'
+import { useTerminal } from '../stores/terminal'
+import { money, number, percent } from '../lib/format'
+import AssetMark from './AssetMark.vue'
+defineProps<{ detailed?: boolean }>()
+const store = useTerminal()
+const allocation = computed(() =>
+  store.equity > 0
+    ? Math.min(100, (store.marketValue / store.equity) * 100)
+    : 0,
+)
+</script>

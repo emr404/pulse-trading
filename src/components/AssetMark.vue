@@ -1,7 +1,3 @@
-<script setup lang="ts">
-import type { Asset } from '../../shared/types'
-defineProps<{ asset?: Asset; symbol?: string }>()
-</script>
 <template>
   <span
     class="asset-mark"
@@ -13,3 +9,8 @@ defineProps<{ asset?: Asset; symbol?: string }>()
     }}<span v-if="asset?.symbol === 'NVDA'" class="mark-dot"></span
   ></span>
 </template>
+
+<script setup lang="ts">
+import type { Asset } from '../../shared/types'
+defineProps<{ asset?: Asset; symbol?: string }>()
+</script>

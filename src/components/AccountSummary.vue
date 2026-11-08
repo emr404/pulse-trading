@@ -1,9 +1,3 @@
-<script setup lang="ts">
-import { BriefcaseBusiness } from 'lucide-vue-next'
-import { useTerminal } from '../stores/terminal'
-import { money, percent, time } from '../lib/format'
-const store = useTerminal()
-</script>
 <template>
   <section class="panel account-summary">
     <div class="panel-heading">
@@ -34,3 +28,10 @@ const store = useTerminal()
     </div>
   </section>
 </template>
+
+<script setup lang="ts">
+import { BriefcaseBusiness } from 'lucide-vue-next'
+import { useTerminal } from '../stores/terminal'
+import { money, percent, time } from '../lib/format'
+const store = useTerminal()
+</script>

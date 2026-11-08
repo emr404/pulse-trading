@@ -1,54 +1,3 @@
-<script setup lang="ts">
-import { computed, ref, onMounted, onUnmounted } from 'vue'
-import { Search, X, Plus, Check } from 'lucide-vue-next'
-import { useTerminal } from '../stores/terminal'
-import { money, percent } from '../lib/format'
-import AssetMark from './AssetMark.vue'
-const props = defineProps<{ watchMode?: boolean }>()
-const emit = defineEmits<{ close: [] }>()
-const store = useTerminal(),
-  query = ref(''),
-  input = ref<HTMLInputElement>(),
-  dialog = ref<HTMLElement>()
-let previousFocus: Element | null
-const results = computed(() =>
-  store.assets.filter((a) =>
-    `${a.symbol} ${a.name}`.toLowerCase().includes(query.value.toLowerCase()),
-  ),
-)
-function choose(symbol: string) {
-  if (props.watchMode) store.toggleWatch(symbol)
-  else {
-    store.select(symbol)
-    emit('close')
-  }
-}
-function keydown(event: KeyboardEvent) {
-  if (event.key === 'Escape') emit('close')
-  if (event.key === 'Tab') {
-    const nodes = dialog.value?.querySelectorAll<HTMLElement>('button,input')
-    if (!nodes?.length) return
-    const first = nodes[0],
-      last = nodes[nodes.length - 1]
-    if (event.shiftKey && document.activeElement === first) {
-      event.preventDefault()
-      last.focus()
-    } else if (!event.shiftKey && document.activeElement === last) {
-      event.preventDefault()
-      first.focus()
-    }
-  }
-}
-onMounted(() => {
-  previousFocus = document.activeElement
-  input.value?.focus()
-  document.addEventListener('keydown', keydown)
-})
-onUnmounted(() => {
-  document.removeEventListener('keydown', keydown)
-  if (previousFocus instanceof HTMLElement) previousFocus.focus()
-})
-</script>
 <template>
   <Teleport to="body"
     ><div class="modal-backdrop" @click.self="emit('close')">
@@ -119,3 +68,55 @@ onUnmounted(() => {
     </div></Teleport
   >
 </template>
+
+<script setup lang="ts">
+import { computed, ref, onMounted, onUnmounted } from 'vue'
+import { Search, X, Plus, Check } from 'lucide-vue-next'
+import { useTerminal } from '../stores/terminal'
+import { money, percent } from '../lib/format'
+import AssetMark from './AssetMark.vue'
+const props = defineProps<{ watchMode?: boolean }>()
+const emit = defineEmits<{ close: [] }>()
+const store = useTerminal(),
+  query = ref(''),
+  input = ref<HTMLInputElement>(),
+  dialog = ref<HTMLElement>()
+let previousFocus: Element | null
+const results = computed(() =>
+  store.assets.filter((a) =>
+    `${a.symbol} ${a.name}`.toLowerCase().includes(query.value.toLowerCase()),
+  ),
+)
+function choose(symbol: string): void {
+  if (props.watchMode) store.toggleWatch(symbol)
+  else {
+    store.openStock(symbol)
+    emit('close')
+  }
+}
+function keydown(event: KeyboardEvent): void {
+  if (event.key === 'Escape') emit('close')
+  if (event.key === 'Tab') {
+    const nodes = dialog.value?.querySelectorAll<HTMLElement>('button,input')
+    if (!nodes?.length) return
+    const first = nodes[0],
+      last = nodes[nodes.length - 1]
+    if (event.shiftKey && document.activeElement === first) {
+      event.preventDefault()
+      last.focus()
+    } else if (!event.shiftKey && document.activeElement === last) {
+      event.preventDefault()
+      first.focus()
+    }
+  }
+}
+onMounted(() => {
+  previousFocus = document.activeElement
+  input.value?.focus()
+  document.addEventListener('keydown', keydown)
+})
+onUnmounted(() => {
+  document.removeEventListener('keydown', keydown)
+  if (previousFocus instanceof HTMLElement) previousFocus.focus()
+})
+</script>

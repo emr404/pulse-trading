@@ -1,21 +1,3 @@
-<script setup lang="ts">
-import { toRef } from 'vue'
-import { Star, Maximize2, Minimize2, RefreshCw } from 'lucide-vue-next'
-import { RANGES } from '../../shared/types'
-import { useTerminal } from '../stores/terminal'
-import { useCurrency } from '../stores/currency'
-import { useStockChart } from '../modules/chart/useStockChart'
-import { money, percent, compact } from '../lib/format'
-import AssetMark from './AssetMark.vue'
-const store = useTerminal(),
-  currency = useCurrency()
-const { container, loading, error, expanded, bars, legend, load } =
-  useStockChart({
-    symbol: toRef(store, 'selected'),
-    range: toRef(store, 'range'),
-    mode: toRef(() => store.status.mode),
-  })
-</script>
 <template>
   <section class="panel chart-panel" :class="{ expanded }">
     <div class="chart-heading">
@@ -128,3 +110,22 @@ const { container, loading, error, expanded, bars, legend, load } =
     </div>
   </section>
 </template>
+
+<script setup lang="ts">
+import { toRef } from 'vue'
+import { Star, Maximize2, Minimize2, RefreshCw } from 'lucide-vue-next'
+import { RANGES } from '../../shared/types'
+import { useTerminal } from '../stores/terminal'
+import { useCurrency } from '../stores/currency'
+import { useStockChart } from '../modules/chart/useStockChart'
+import { money, percent, compact } from '../lib/format'
+import AssetMark from './AssetMark.vue'
+const store = useTerminal(),
+  currency = useCurrency()
+const { container, loading, error, expanded, bars, legend, load } =
+  useStockChart({
+    symbol: toRef(store, 'selected'),
+    range: toRef(store, 'range'),
+    mode: toRef(() => store.status.mode),
+  })
+</script>

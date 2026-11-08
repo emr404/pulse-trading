@@ -1,9 +1,15 @@
 import { Decimal } from 'decimal.js'
 import type { Portfolio, Quote } from '../../../shared/types'
+export interface PortfolioValuation {
+  marketValue: number
+  equity: number
+  unrealized: number
+  totalPnl: number
+}
 export function valuePortfolio(
   portfolio: Portfolio | null,
   quote: (symbol: string) => Quote | undefined,
-) {
+): PortfolioValuation {
   let marketValue = new Decimal(0),
     cost = new Decimal(0)
   for (const position of portfolio?.positions ?? []) {

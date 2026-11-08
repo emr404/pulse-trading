@@ -1,10 +1,9 @@
 import { computed, ref } from 'vue'
 import { defineStore } from 'pinia'
 import { api } from '../../lib/format'
-import {
-  requestSchema,
-  portfolioMessageSchema,
-} from '../../../shared/portfolio-schema'
+import { requestSchema } from '../../../shared/portfolio-schema'
+import { orderResponseSchema } from '../../../shared/api'
+import type { Order } from '../../../shared/types'
 import type { OrderRequest } from '../../../shared/order-types'
 import { usePortfolio } from '../portfolio/store'
 export const useOrders = defineStore('orders', () => {
@@ -18,22 +17,26 @@ export const useOrders = defineStore('orders', () => {
     symbol: string
     side: 'buy' | 'sell'
     quantity: number
-  }) {
+  }): Promise<Order> {
     const id = crypto.randomUUID()
     activeId.value = id
     const controller = new AbortController()
     controllers.add(controller)
     const timeout = setTimeout(() => controller.abort(), 15000)
     try {
-      const pending = requestSchema.parse(
-        await api<unknown>('/api/orders', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ id, input }),
-          signal: controller.signal,
-        }),
+      const pending = await api('/api/orders', requestSchema, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id, input }),
+        signal: controller.signal,
+      })
+      const currentRequest = account.portfolio?.requests?.find(
+        (request) => request.id === id,
       )
-      if (account.portfolio)
+      if (
+        account.portfolio &&
+        (!currentRequest || currentRequest.updatedAt < pending.updatedAt)
+      )
         account.apply({
           ...account.portfolio,
           requests: [
@@ -42,14 +45,13 @@ export const useOrders = defineStore('orders', () => {
           ],
         })
       while (!controller.signal.aborted) {
-        const result = await api<{ order: OrderRequest; portfolio: unknown }>(
-          `/api/orders/${id}`,
-          { signal: controller.signal },
-        )
-        const request = requestSchema.parse(result.order)
-        account.apply(portfolioMessageSchema.parse(result.portfolio))
+        const result = await api(`/api/orders/${id}`, orderResponseSchema, {
+          signal: controller.signal,
+        })
+        const request = result.order
+        account.apply(result.portfolio)
         if (request.state === 'filled') {
-          const fill = account.portfolio!.orders.find(
+          const fill = result.portfolio.orders.find(
             (o) => o.id === request.fillId,
           )
           if (!fill)
@@ -75,20 +77,25 @@ export const useOrders = defineStore('orders', () => {
         })
       }
       throw new Error('Order status timed out. Check Activity before retrying.')
+    } catch (error) {
+      if (controller.signal.aborted)
+        throw new Error(
+          'Order status timed out. Check Activity before retrying.',
+        )
+      throw error
     } finally {
       clearTimeout(timeout)
       controllers.delete(controller)
     }
   }
-  async function cancel(id: string) {
-    const result = await api<{ order: OrderRequest; portfolio: unknown }>(
-      `/api/orders/${id}/cancel`,
-      { method: 'POST' },
-    )
+  async function cancel(id: string): Promise<OrderRequest> {
+    const result = await api(`/api/orders/${id}/cancel`, orderResponseSchema, {
+      method: 'POST',
+    })
     account.apply(result.portfolio)
-    return requestSchema.parse(result.order)
+    return result.order
   }
-  function stop() {
+  function stop(): void {
     controllers.forEach((c) => c.abort())
     controllers.clear()
   }

@@ -6,7 +6,6 @@ import {
   type Range,
 } from '../../shared/types.js'
 import type { MarketProvider } from './types.js'
-// A deterministic historical series, ending at the current simulated quote.
 export function demoCandles(
   asset: Asset,
   range: Range,
@@ -84,10 +83,10 @@ export class DemoProvider implements MarketProvider {
         .slice(-30)
         .map((b) => b.close)
   }
-  snapshot() {
+  snapshot(): MarketSnapshot {
     return this.state
   }
-  start(onUpdate: () => void) {
+  start(onUpdate: () => void): void {
     this.timer = setInterval(() => {
       const now = Date.now()
       this.state.quotes = this.state.quotes.map((q) => {
@@ -117,10 +116,10 @@ export class DemoProvider implements MarketProvider {
     }, 1800)
     onUpdate()
   }
-  stop() {
+  stop(): void {
     clearInterval(this.timer)
   }
-  async candles(symbol: string, range: Range) {
+  async candles(symbol: string, range: Range): Promise<Candle[]> {
     const asset = this.state.assets.find((a) => a.symbol === symbol)
     if (!asset) throw new Error('Unknown symbol.')
     return demoCandles(

@@ -11,7 +11,17 @@ interface Store {
   save(value: Portfolio): Portfolio
 }
 /** Single-writer lifecycle. A fill and its terminal state commit in one atomic save. */
+export class OrderPersistenceError extends Error {
+  constructor() {
+    super(
+      'Order storage is unavailable. Check Activity before retrying; execution could not be confirmed.',
+    )
+    this.name = 'OrderPersistenceError'
+  }
+}
 export class OrderManager {
+  private persistenceFailed = false
+  private failedRequests = new Set<string>()
   private timers = new Map<string, ReturnType<typeof setTimeout>>()
   constructor(
     private store: Store,
@@ -30,10 +40,12 @@ export class OrderManager {
       }
     if (changed) store.save(value)
   }
-  get(id: string) {
+  get(id: string): OrderRequest | undefined {
+    if (this.failedRequests.has(id)) throw new OrderPersistenceError()
     return this.store.get().requests?.find((r) => r.id === id)
   }
   submit(id: string, input: OrderInput): OrderRequest {
+    if (this.persistenceFailed) throw new OrderPersistenceError()
     input = orderSchema.parse(input)
     const existing = this.get(id)
     if (existing) {
@@ -68,6 +80,8 @@ export class OrderManager {
         try {
           this.settle(id)
         } catch (error) {
+          this.persistenceFailed = true
+          this.failedRequests.add(id)
           console.error(
             'Order persistence failed; request remains pending:',
             error instanceof Error ? error.message : 'Unknown failure',
@@ -77,7 +91,7 @@ export class OrderManager {
     )
     return request
   }
-  settle(id: string) {
+  settle(id: string): OrderRequest | undefined {
     const current = this.store.get(),
       request = current.requests?.find((r) => r.id === id)
     if (!request || request.state !== 'pending') return request
@@ -112,7 +126,7 @@ export class OrderManager {
     this.publish(this.store.save(next))
     return this.get(id)
   }
-  cancel(id: string) {
+  cancel(id: string): OrderRequest {
     const value = this.store.get(),
       request = value.requests?.find((r) => r.id === id)
     if (!request) throw new TradingError('Order not found.')
@@ -125,8 +139,15 @@ export class OrderManager {
     this.publish(this.store.save(value))
     return request
   }
-  stop() {
-    for (const id of this.timers.keys()) this.cancel(id)
+  stop(): void {
+    for (const [id, timer] of this.timers) {
+      clearTimeout(timer)
+      try {
+        this.cancel(id)
+      } catch {
+        this.failedRequests.add(id)
+      }
+    }
     this.timers.clear()
   }
 }
