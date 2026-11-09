@@ -153,8 +153,12 @@ strong,
   display: grid;
   place-items: center;
   border-radius: 8px;
-  background: #b7e59e;
-  color: #1a1a1a;
+  flex-shrink: 0;
+}
+.brand-icon img {
+  display: block;
+  width: 100%;
+  height: 100%;
 }
 .brand-period {
   color: #b7e59e;
@@ -2607,6 +2611,17 @@ td {
 @media (min-width: 1181px) {
   .watchlist-view {
     grid-template-columns: 380px minmax(0, 1fr);
+    align-items: stretch;
+  }
+  .watchlist-view > .chart-panel:not(.expanded) .chart-canvas {
+    height: clamp(280px, 36vh, 380px);
+  }
+  .watchlist-view > .watchlist-panel {
+    display: flex;
+    flex-direction: column;
+  }
+  .watchlist-view > .watchlist-panel > :not(.watchlist-rows) {
+    flex-shrink: 0;
   }
   .watchlist-view .watchlist-expanded {
     --watch-price-width: 80px;
@@ -2623,7 +2638,9 @@ td {
     font-size: 12px;
   }
   .watchlist-view .watchlist-rows {
-    max-height: 480px;
+    flex: 1;
+    height: 0;
+    min-height: 200px;
     overflow-y: auto;
   }
 }

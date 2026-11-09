@@ -6,7 +6,7 @@
       aria-label="Ledger markets"
       @click.prevent="shell.navigate('Markets')"
       ><span class="brand-icon"
-        ><Activity :size="23" :stroke-width="2.4" /></span
+        ><img :src="logoUrl" alt="" width="31" height="31" /></span
       ><span>ledger<span class="brand-period">.</span></span></a
     >
     <nav id="main-navigation" aria-label="Main navigation">
@@ -40,7 +40,6 @@
 
 <script setup lang="ts">
 import {
-  Activity,
   ChartNoAxesCombined,
   Star,
   BriefcaseBusiness,
@@ -49,6 +48,7 @@ import {
 } from 'lucide-vue-next'
 import { useTerminal } from '../../stores/terminal'
 import { useShell } from '../../stores/shell'
+const logoUrl = `${import.meta.env.BASE_URL}favicon.svg`
 const store = useTerminal()
 const shell = useShell()
 const nav = [
