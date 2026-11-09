@@ -17,15 +17,18 @@
       <Search :size="15" /><span>Search stocks, companies…</span><kbd>⌘ K</kbd>
     </button>
     <div class="topbar-right">
-      <select
-        v-model="currency.selected"
-        class="currency-select compact-currency"
-        aria-label="Display currency"
-      >
-        <option value="USD">USD</option>
-        <option value="GBP">GBP</option>
-        <option value="EUR">EUR</option>
-      </select>
+      <div class="select-control">
+        <select
+          v-model="currency.selected"
+          class="currency-select compact-currency"
+          aria-label="Display currency"
+        >
+          <option value="USD">USD</option>
+          <option value="GBP">GBP</option>
+          <option value="EUR">EUR</option>
+        </select>
+        <ChevronDown :size="14" aria-hidden="true" />
+      </div>
       <span
         class="market-session"
         title="US weekday schedule; market holidays are not included"
@@ -75,7 +78,7 @@
 </template>
 
 <script setup lang="ts">
-import { Menu, Search, Bell, UserRound } from 'lucide-vue-next'
+import { Menu, Search, Bell, UserRound, ChevronDown } from 'lucide-vue-next'
 import { useTerminal } from '../../stores/terminal'
 import { useCurrency } from '../../stores/currency'
 import { useShell } from '../../stores/shell'

@@ -2404,17 +2404,31 @@ td {
     font-size: 13px;
   }
 }
+.select-control {
+  position: relative;
+  display: inline-flex;
+  flex-shrink: 0;
+}
+.select-control > svg {
+  position: absolute;
+  right: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  pointer-events: none;
+  color: var(--muted);
+}
 .currency-select {
   background: #1f1f1f;
   color: #f5f5f5;
   border: 1px solid #3a3a3a;
   border-radius: 5px;
-  padding: 8px 10px;
+  appearance: none;
+  padding: 8px 36px 8px 12px;
   font-size: 13px;
   max-width: 100%;
 }
 .compact-currency {
-  padding: 5px 7px;
+  padding: 5px 36px 5px 12px;
   font-size: 12px;
 }
 .fx-notice {
