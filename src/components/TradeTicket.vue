@@ -23,7 +23,7 @@
         </button>
       </div>
       <div class="order-asset">
-        <b>{{ store.selected }}</b
+        <b>{{ store.selectedSymbol }}</b
         ><span>Market order</span>
       </div>
       <div class="bid-ask">
@@ -47,7 +47,7 @@
           required
           :aria-invalid="!!invalid"
           :aria-describedby="invalid ? 'quantity-error' : undefined"
-        /><span>{{ store.selected }}</span>
+        /><span>{{ store.selectedSymbol }}</span>
       </div>
       <div class="quantity-shortcuts">
         <button
@@ -63,7 +63,7 @@
         <div>
           <span>{{ side === 'buy' ? 'Buying power' : 'Shares available' }}</span
           ><b>{{
-            side === 'buy' ? money(store.portfolio?.cash) : number(store.held)
+            side === 'buy' ? money(store.portfolio?.cash) : number(store.heldQuantity)
           }}</b>
         </div>
         <div>
@@ -85,7 +85,7 @@
         {{
           busy
             ? 'Placing order…'
-            : `${side === 'buy' ? 'Buy' : 'Sell'} ${store.selected}`
+            : `${side === 'buy' ? 'Buy' : 'Sell'} ${store.selectedSymbol}`
         }}<ArrowRight :size="16" />
       </button>
       <button

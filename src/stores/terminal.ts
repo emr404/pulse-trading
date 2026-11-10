@@ -11,8 +11,8 @@ export type Page =
   | 'Portfolio'
   | 'Activity'
 export const useTerminal = defineStore('terminal', () => {
-  const market = useMarket(),
-    account = usePortfolio()
+  const market = useMarket()
+  const account = usePortfolio()
   const { assets, status, transport, now, connection, connected } =
     storeToRefs(market)
   const {
@@ -23,11 +23,11 @@ export const useTerminal = defineStore('terminal', () => {
     totalPnl,
     valuationEstimated,
   } = storeToRefs(account)
-  const quotes = market.quotes,
-    trails = market.trails,
-    flashes = market.flashes
+  const quotes = market.quotes
+  const trails = market.trails
+  const flashes = market.flashes
   const page = ref<Page>('Markets')
-  const selected = ref('AAPL')
+  const selectedSymbol = ref('AAPL')
   const range = ref<Range>('1D')
   const savedWatchlist = readLocal(
     'pulse:stocks:watchlist',
@@ -40,33 +40,33 @@ export const useTerminal = defineStore('terminal', () => {
   )
   const notificationsOpen = ref(false)
   const notice = ref('')
-  const activeQuote = computed(() => quotes[selected.value])
+  const activeQuote = computed(() => quotes[selectedSymbol.value])
   const activeAsset = computed(() =>
-    assets.value.find((a) => a.symbol === selected.value),
+    assets.value.find((a) => a.symbol === selectedSymbol.value),
   )
-  const held = computed(
+  const heldQuantity = computed(
     () =>
-      portfolio.value?.positions.find((p) => p.symbol === selected.value)
+      portfolio.value?.positions.find((p) => p.symbol === selectedSymbol.value)
         ?.quantity ?? 0,
   )
   const canTrade = computed(
     () =>
       connected.value &&
-      !market.stale[selected.value] &&
+      !market.stale[selectedSymbol.value] &&
       !!activeQuote.value &&
       now.value - activeQuote.value.quoteAt < 60000 &&
       activeQuote.value.bid > 0 &&
       activeQuote.value.ask > 0,
   )
-  const select = (symbol: string): void => {
-    selected.value = symbol
+  const selectStock = (symbol: string): void => {
+    selectedSymbol.value = symbol
   }
   const openStock = (symbol: string): void => {
-    select(symbol)
+    selectStock(symbol)
     if (!['Markets', 'Watchlist'].includes(page.value))
       page.value = 'Markets'
   }
-  const toggleWatch = (symbol: string): void => {
+  const toggleWatchlist = (symbol: string): void => {
     watchlist.value = watchlist.value.includes(symbol)
       ? watchlist.value.filter((s) => s !== symbol)
       : [...watchlist.value, symbol]
@@ -83,7 +83,7 @@ export const useTerminal = defineStore('terminal', () => {
     transport,
     portfolio,
     page,
-    selected,
+    selectedSymbol,
     range,
     watchlist,
     flashes,
@@ -100,11 +100,11 @@ export const useTerminal = defineStore('terminal', () => {
     equity,
     unrealized,
     totalPnl,
-    held,
+    heldQuantity,
     canTrade,
     valuationEstimated,
-    select,
+    selectStock,
     openStock,
-    toggleWatch,
+    toggleWatchlist,
   }
 })

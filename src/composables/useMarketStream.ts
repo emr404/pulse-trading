@@ -4,27 +4,27 @@ import { createMarketConnection } from '../modules/market/connection'
 import { useMarket } from '../modules/market/store'
 import { usePortfolio } from '../modules/portfolio/store'
 export const useMarketStream = (): { reconnect(): void } => {
-  const market = useMarket(),
-    portfolio = usePortfolio()
+  const market = useMarket()
+  const portfolio = usePortfolio()
   const connection = createMarketConnection({
     socket: () => new WebSocket(socketUrl()),
     online: () => navigator.onLine,
-    frame: (frame) => market.apply(frame),
-    portfolio: (data) => portfolio.apply(data),
+    frame: (frame) => market.applyMarketFrame(frame),
+    portfolio: (data) => portfolio.applyPortfolioSnapshot(data),
     state: (value) => {
       market.transport = value
-      market.tick()
+      market.refreshStaleQuotes()
     },
     unsynchronized: () => {
       market.synchronized = false
-      market.tick()
+      market.refreshStaleQuotes()
     },
   })
   let timer: ReturnType<typeof setInterval>
   const reconnect = () => connection.reconnect()
   onMounted(() => {
     connection.start()
-    timer = setInterval(() => market.tick(), 1000)
+    timer = setInterval(() => market.refreshStaleQuotes(), 1000)
     window.addEventListener('online', reconnect)
     window.addEventListener('offline', reconnect)
   })

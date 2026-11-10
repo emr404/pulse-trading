@@ -20,7 +20,7 @@ export const usePortfolio = defineStore('portfolio', () => {
         (p) => !market.quotes[p.symbol] || market.stale[p.symbol],
       ) ?? false,
   )
-  const apply = (input: Portfolio): boolean => {
+  const applyPortfolioSnapshot = (input: Portfolio): boolean => {
     const parsed = portfolioMessageSchema.safeParse(input)
     if (parsed.success) portfolio.value = parsed.data
     return parsed.success
@@ -32,6 +32,6 @@ export const usePortfolio = defineStore('portfolio', () => {
     unrealized,
     totalPnl,
     valuationEstimated,
-    apply,
+    applyPortfolioSnapshot,
   }
 })

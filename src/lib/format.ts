@@ -1,4 +1,3 @@
-export { api } from './api'
 import { useCurrency } from '../stores/currency'
 import type { Currency } from '../../shared/currency'
 

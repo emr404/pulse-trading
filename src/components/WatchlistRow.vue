@@ -1,10 +1,10 @@
 <template>
-  <div class="watch-row" :class="{ selected: store.selected === asset.symbol }">
+  <div class="watch-row" :class="{ selected: store.selectedSymbol === asset.symbol }">
     <button
       class="watch-select"
       :aria-label="'Select ' + asset.symbol"
-      :aria-pressed="store.selected === asset.symbol"
-      @click="store.select(asset.symbol)"
+      :aria-pressed="store.selectedSymbol === asset.symbol"
+      @click="store.selectStock(asset.symbol)"
     >
       <AssetMark :asset="asset" /><span class="asset-copy"
         ><b>{{ asset.symbol }}</b
@@ -34,7 +34,7 @@
       class="remove-stock icon-button"
       :aria-label="(all ? 'Toggle watchlist ' : 'Remove ') + asset.symbol"
       :aria-pressed="all ? store.watchlist.includes(asset.symbol) : undefined"
-      @click="store.toggleWatch(asset.symbol)"
+      @click="store.toggleWatchlist(asset.symbol)"
     >
       <Star
         v-if="all"

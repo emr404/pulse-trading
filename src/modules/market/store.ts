@@ -31,7 +31,38 @@ export const useMarket = defineStore('market', () => {
   )
   const listeners = new Map<string, Set<(update: CandleUpdate) => void>>()
   const metrics = { frames: 0, quoteWrites: 0, chartEvents: 0 }
-  const apply = (frame: MarketFrame): void => {
+  const applyQuote = (quote: Quote, isSnapshot: boolean): void => {
+    const previous = quotes[quote.symbol]
+    if (
+      !isSnapshot &&
+      previous &&
+      (quote.updatedAt < previous.updatedAt || quote.quoteAt < previous.quoteAt)
+    )
+      return
+    if (
+      previous &&
+      Object.keys(quote).every(
+        (k) => quote[k as keyof Quote] === previous[k as keyof Quote],
+      )
+    )
+      return
+    if (previous && previous.price !== quote.price)
+      flashes[quote.symbol] = quote.price > previous.price ? 'up' : 'down'
+    quotes[quote.symbol] = quote
+    metrics.quoteWrites++
+    stale[quote.symbol] = staleQuote(quote, Date.now())
+  }
+
+  const notifyCandleSubscribers = (updates: CandleUpdate[]): void => {
+    for (const update of updates) {
+      metrics.chartEvents++
+      listeners
+        .get(`${update.symbol}:${update.range}`)
+        ?.forEach((listener) => listener(update))
+    }
+  }
+
+  const applyMarketFrame = (frame: MarketFrame): void => {
     metrics.frames++
     if (frame.type === 'snapshot') {
       if (
@@ -49,45 +80,23 @@ export const useMarket = defineStore('market', () => {
       synchronized.value = true
       revision.value++
     }
-    for (const q of frame.quotes) {
-      const previous = quotes[q.symbol]
-      if (
-        frame.type !== 'snapshot' &&
-        previous &&
-        (q.updatedAt < previous.updatedAt || q.quoteAt < previous.quoteAt)
-      )
-        continue
-      if (
-        previous &&
-        Object.keys(q).every(
-          (k) => q[k as keyof Quote] === previous[k as keyof Quote],
-        )
-      )
-        continue
-      if (previous && previous.price !== q.price)
-        flashes[q.symbol] = q.price > previous.price ? 'up' : 'down'
-      quotes[q.symbol] = q
-      metrics.quoteWrites++
-      stale[q.symbol] = staleQuote(q, Date.now())
+    for (const quote of frame.quotes) {
+      applyQuote(quote, frame.type === 'snapshot')
     }
     for (const [symbol, values] of Object.entries(frame.trails))
       trails[symbol] = values
     Object.assign(status, frame.status)
-    for (const update of frame.candles) {
-      metrics.chartEvents++
-      listeners
-        .get(`${update.symbol}:${update.range}`)
-        ?.forEach((listener) => listener(update))
-    }
+    notifyCandleSubscribers(frame.candles)
   }
-  const tick = (): void => {
+
+  const refreshStaleQuotes = (): void => {
     now.value = Date.now()
     for (const symbol of Object.keys(quotes)) {
       const value = staleQuote(quotes[symbol], now.value) || !connected.value
       if (stale[symbol] !== value) stale[symbol] = value
     }
   }
-  const subscribe = (
+  const subscribeToCandles = (
     key: string,
     listener: (update: CandleUpdate) => void,
   ): () => void => {
@@ -113,8 +122,8 @@ export const useMarket = defineStore('market', () => {
     connection,
     connected,
     metrics,
-    apply,
-    tick,
-    subscribe,
+    applyMarketFrame,
+    refreshStaleQuotes,
+    subscribeToCandles,
   }
 })

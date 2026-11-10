@@ -15,7 +15,7 @@
       v-for="asset in movers"
       :key="asset.symbol"
       class="mover-row"
-      @click="store.select(asset.symbol)"
+      @click="store.selectStock(asset.symbol)"
     >
       <AssetMark :asset="asset" /><span class="mover-name"
         ><b>{{ asset.symbol }}</b

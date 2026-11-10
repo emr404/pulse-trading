@@ -88,7 +88,7 @@ const results = computed(() =>
   ),
 )
 const choose = (symbol: string): void => {
-  if (props.watchMode) store.toggleWatch(symbol)
+  if (props.watchMode) store.toggleWatchlist(symbol)
   else {
     store.openStock(symbol)
     emit('close')

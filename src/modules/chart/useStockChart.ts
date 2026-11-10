@@ -26,7 +26,8 @@ import {
   type MarketMode,
 } from '../../../shared/types'
 import { useCurrency } from '../../stores/currency'
-import { api, money } from '../../lib/format'
+import { api } from '../../lib/api'
+import { money } from '../../lib/format'
 import { useMarket } from '../market/store'
 import { candleResponseSchema } from '../../../shared/api'
 import { candleSchema, type CandleUpdate } from '../../../shared/protocol'
@@ -43,34 +44,40 @@ export interface StockChart {
   expanded: Ref<boolean>
   bars: ShallowRef<Candle[]>
   legend: ComputedRef<Candle | undefined>
-  load(): Promise<void>
+  loadHistory(): Promise<void>
 }
 export const useStockChart = (selection: ChartSelection): StockChart => {
   const market = useMarket()
   const currency = useCurrency()
-  const container = ref<HTMLDivElement>(),
-    loading = ref(true),
-    error = ref(''),
-    expanded = ref(false),
-    hover = ref<Candle | null>(null),
-    bars = shallowRef<Candle[]>([])
-  let chart: IChartApi | undefined,
-    candles: ISeriesApi<'Candlestick'> | undefined,
-    volume: ISeriesApi<'Histogram'> | undefined,
-    abort: AbortController | undefined,
-    observer: ResizeObserver | undefined
-  let loadedSymbol = '',
-    loadedRange = ''
+  const container = ref<HTMLDivElement>()
+  const loading = ref(true)
+  const error = ref('')
+  const expanded = ref(false)
+  const hover = ref<Candle | null>(null)
+  const bars = shallowRef<Candle[]>([])
+  let chart: IChartApi | undefined
+  let candles: ISeriesApi<'Candlestick'> | undefined
+  let volume: ISeriesApi<'Histogram'> | undefined
+  let abort: AbortController | undefined
+  let observer: ResizeObserver | undefined
+  let loadedSymbol = ''
+  let loadedRange = ''
+  const liveVolumes = new Map<number, number>()
+  let unsubscribeFromCandles: (() => void) | undefined
+  let animation = 0
+  const pending = new Map<number, CandleUpdate>()
+  const lastBar = shallowRef<Candle | null>(null)
+
   const legend = computed(
     () => hover.value ?? lastBar.value ?? bars.value.at(-1),
   )
-  const load = async (): Promise<void> => {
+  const loadHistory = async (): Promise<void> => {
     if (!chart || !selection.symbol.value) return
     abort?.abort()
     abort = new AbortController()
-    const symbol = selection.symbol.value,
-      range = selection.range.value,
-      signal = abort.signal
+    const symbol = selection.symbol.value
+    const range = selection.range.value
+    const signal = abort.signal
     loading.value = true
     error.value = ''
     hover.value = null
@@ -199,18 +206,13 @@ export const useStockChart = (selection: ChartSelection): StockChart => {
       })
     })
     observer.observe(container.value)
-    void load()
+    void loadHistory()
   })
   watch(
     () => [selection.symbol.value, selection.range.value, selection.mode.value],
-    () => void load(),
+    () => void loadHistory(),
   )
-  const liveVolumes = new Map<number, number>()
-  let unsubscribe: (() => void) | undefined
-  let animation = 0
-  const pending = new Map<number, CandleUpdate>()
-  const lastBar = shallowRef<Candle | null>(null)
-  const flush = (): void => {
+  const renderPendingCandles = (): void => {
     animation = 0
     if (
       loading.value ||
@@ -224,8 +226,8 @@ export const useStockChart = (selection: ChartSelection): StockChart => {
       for (const update of [...pending.values()].sort(
         (a, b) => a.candle.time - b.candle.time,
       )) {
-        const raw = update.candle,
-          last = bars.value.at(-1)
+        const raw = update.candle
+        const last = bars.value.at(-1)
         const seconds = RANGE_CONFIG[selection.range.value].seconds
         const live =
           last &&
@@ -259,44 +261,47 @@ export const useStockChart = (selection: ChartSelection): StockChart => {
       error.value = 'Unable to update the chart. Reload chart data to retry.'
     }
   }
+  const subscribeToSelectedStock = (): void => {
+    unsubscribeFromCandles?.()
+    pending.clear()
+    liveVolumes.clear()
+    lastBar.value = null
+    unsubscribeFromCandles = market.subscribeToCandles(
+      `${selection.symbol.value}:${selection.range.value}`,
+      (update) => {
+        pending.set(update.candle.time, update)
+        if (!animation) animation = requestAnimationFrame(renderPendingCandles)
+      },
+    )
+  }
+
   watch(
     () => [selection.symbol.value, selection.range.value],
-    () => {
-      unsubscribe?.()
-      pending.clear()
-      liveVolumes.clear()
-      lastBar.value = null
-      unsubscribe = market.subscribe(
-        `${selection.symbol.value}:${selection.range.value}`,
-        (update) => {
-          pending.set(update.candle.time, update)
-          if (!animation) animation = requestAnimationFrame(flush)
-        },
-      )
-    },
+    subscribeToSelectedStock,
     { immediate: true },
   )
   watch(loading, (value) => {
     if (!value && pending.size && !animation)
-      animation = requestAnimationFrame(flush)
+      animation = requestAnimationFrame(renderPendingCandles)
   })
   watch(
     () => market.revision,
-    () => void load(),
+    () => void loadHistory(),
   )
   const escape = (event: KeyboardEvent): void => {
     if (event.key === 'Escape') expanded.value = false
   }
   onMounted(() => document.addEventListener('keydown', escape))
-  onUnmounted(() => {
-    unsubscribe?.()
+  const disposeChart = (): void => {
+    unsubscribeFromCandles?.()
     cancelAnimationFrame(animation)
     pending.clear()
     abort?.abort()
     observer?.disconnect()
     chart?.remove()
     document.removeEventListener('keydown', escape)
-  })
+  }
+  onUnmounted(disposeChart)
 
-  return { container, loading, error, expanded, bars, legend, load }
+  return { container, loading, error, expanded, bars, legend, loadHistory }
 }

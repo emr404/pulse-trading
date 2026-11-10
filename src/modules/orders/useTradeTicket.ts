@@ -22,12 +22,12 @@ export interface TradeTicketState {
 
 export const useTradeTicket = (): TradeTicketState => {
   const orders = useOrders()
-  const store = useTerminal(),
-    side = ref<'buy' | 'sell'>('buy'),
-    quantity = ref<number | string>(1),
-    busy = ref(false),
-    confirmation = ref(''),
-    error = ref('')
+  const store = useTerminal()
+  const side = ref<'buy' | 'sell'>('buy')
+  const quantity = ref<number | string>(1)
+  const busy = ref(false)
+  const confirmation = ref('')
+  const error = ref('')
   const price = computed(
     () => store.activeQuote?.[side.value === 'buy' ? 'ask' : 'bid'] ?? 0,
   )
@@ -38,11 +38,11 @@ export const useTradeTicket = (): TradeTicketState => {
       side.value,
       price.value,
       store.portfolio?.cash ?? 0,
-      store.held,
+      store.heldQuantity,
     ),
   )
   watch(
-    () => [store.selected, side.value, quantity.value],
+    () => [store.selectedSymbol, side.value, quantity.value],
     () => {
       confirmation.value = ''
       error.value = ''
@@ -54,7 +54,7 @@ export const useTradeTicket = (): TradeTicketState => {
       side.value,
       price.value,
       store.portfolio?.cash ?? 0,
-      store.held,
+      store.heldQuantity,
     )
   }
   const cancel = async (): Promise<void> => {
@@ -75,7 +75,7 @@ export const useTradeTicket = (): TradeTicketState => {
     confirmation.value = ''
     try {
       const order = await orders.submit({
-        symbol: store.selected,
+        symbol: store.selectedSymbol,
         side: side.value,
         quantity: Number(quantity.value),
       })

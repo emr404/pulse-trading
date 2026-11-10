@@ -4,18 +4,18 @@
       <div class="chart-asset">
         <AssetMark :asset="store.activeAsset" />
         <div>
-          <h2>{{ store.selected }}</h2>
+          <h2>{{ store.selectedSymbol }}</h2>
           <small>{{ store.activeAsset?.name || 'Loading stock…' }}</small>
         </div>
         <button
           class="icon-button star-button"
           aria-label="Toggle selected stock in watchlist"
-          @click="store.toggleWatch(store.selected)"
+          @click="store.toggleWatchlist(store.selectedSymbol)"
         >
           <Star
             :size="15"
             :fill="
-              store.watchlist.includes(store.selected) ? 'currentColor' : 'none'
+              store.watchlist.includes(store.selectedSymbol) ? 'currentColor' : 'none'
             "
           />
         </button>
@@ -30,7 +30,7 @@
         </button>
       </div>
     </div>
-    <div v-if="store.stale[store.selected]" class="stale-notice">
+    <div v-if="store.stale[store.selectedSymbol]" class="stale-notice">
       Stale price · Waiting for a fresh market update
     </div>
     <div class="chart-price-row">
@@ -80,13 +80,13 @@
       <div ref="container" class="chart-canvas" data-testid="stock-chart"></div>
       <div v-if="loading" class="chart-overlay">
         <div class="skeleton chart-skeleton"></div>
-        <span>Loading {{ store.selected }} · {{ store.range }}</span>
+        <span>Loading {{ store.selectedSymbol }} · {{ store.range }}</span>
       </div>
       <div v-else-if="error || !bars.length" class="chart-overlay">
         <span>{{
           error || 'No trades in this period. Try a longer timeframe.'
         }}</span
-        ><button v-if="error" class="secondary-button" @click="load">
+        ><button v-if="error" class="secondary-button" @click="loadHistory">
           <RefreshCw :size="13" /> Retry chart
         </button>
       </div>
@@ -114,9 +114,9 @@ import { money, percent, compact } from '../lib/format'
 import AssetMark from './AssetMark.vue'
 const store = useTerminal(),
   currency = useCurrency()
-const { container, loading, error, expanded, bars, legend, load } =
+const { container, loading, error, expanded, bars, legend, loadHistory } =
   useStockChart({
-    symbol: toRef(store, 'selected'),
+    symbol: toRef(store, 'selectedSymbol'),
     range: toRef(store, 'range'),
     mode: toRef(() => store.status.mode),
   })

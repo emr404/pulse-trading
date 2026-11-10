@@ -4,7 +4,7 @@
       v-for="asset in overviewAssets"
       :key="asset.symbol"
       class="market-card"
-      @click="store.select(asset.symbol)"
+      @click="store.selectStock(asset.symbol)"
     >
       <div class="market-card-label">
         <span>{{

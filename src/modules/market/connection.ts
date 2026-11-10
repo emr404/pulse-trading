@@ -22,28 +22,28 @@ interface Options {
   online(): boolean
 }
 export const createMarketConnection = (options: Options) => {
-  let localSocket: Socket | undefined = undefined
-  let retry: ReturnType<typeof setTimeout> | undefined = undefined
-  let health: ReturnType<typeof setInterval> | undefined = undefined
-  let deadline: ReturnType<typeof setTimeout> | undefined = undefined
+  let activeSocket: Socket | undefined = undefined
+  let reconnectTimer: ReturnType<typeof setTimeout> | undefined = undefined
+  let healthCheckTimer: ReturnType<typeof setInterval> | undefined = undefined
+  let connectionDeadline: ReturnType<typeof setTimeout> | undefined = undefined
   let stopped = true
-  let attempts = 0
-  let localSession = ''
-  let localSequence = -1
-  let synced = false
-  let lastMessage = 0
+  let reconnectAttempts = 0
+  let currentSession = ''
+  let lastSequence = -1
+  let synchronized = false
+  let lastMessageAt = 0
   let openedAt = 0
-  const localMetrics = { invalid: 0, duplicate: 0, gaps: 0 }
+  const connectionMetrics = { invalid: 0, duplicate: 0, gaps: 0 }
   const start = (): void => {
     if (!stopped) return
     stopped = false
     connect()
-    health = setInterval(() => {
+    healthCheckTimer = setInterval(() => {
       if (
-        localSocket?.readyState === 1 &&
-        Date.now() - lastMessage > 25000
+        activeSocket?.readyState === 1 &&
+        Date.now() - lastMessageAt > 25000
       )
-        localSocket.close()
+        activeSocket.close()
     }, 1000)
   }
 
@@ -51,24 +51,24 @@ export const createMarketConnection = (options: Options) => {
     if (stopped) return
     if (!options.online()) {
       options.state('disconnected')
-      schedule()
+      scheduleReconnect()
       return
     }
-    options.state(attempts ? 'reconnecting' : 'connecting')
+    options.state(reconnectAttempts ? 'reconnecting' : 'connecting')
     let socket: Socket
     try {
       socket = options.socket()
-      localSocket = socket
+      activeSocket = socket
     } catch {
       options.unsynchronized()
       options.state('reconnecting')
-      schedule()
+      scheduleReconnect()
       return
     }
-    deadline = setTimeout(() => socket.close(), 10000)
+    connectionDeadline = setTimeout(() => socket.close(), 10000)
     socket.onopen = () => {
-      if (localSocket !== socket || stopped) return
-      openedAt = lastMessage = Date.now()
+      if (activeSocket !== socket || stopped) return
+      openedAt = lastMessageAt = Date.now()
       try {
         socket.send(JSON.stringify({ type: 'subscribe' }))
       } catch {
@@ -76,11 +76,11 @@ export const createMarketConnection = (options: Options) => {
       }
     }
     socket.onmessage = (event) => {
-      if (localSocket !== socket || stopped) return
+      if (activeSocket !== socket || stopped) return
       try {
-        receive(event.data)
+        receiveMessage(event.data)
       } catch {
-        synced = false
+        synchronized = false
         options.unsynchronized()
         options.state('reconnecting')
         socket.close()
@@ -88,52 +88,52 @@ export const createMarketConnection = (options: Options) => {
     }
     socket.onerror = () => socket.close()
     socket.onclose = () => {
-      if (localSocket !== socket || stopped) return
-      clearTimeout(deadline)
-      synced = false
+      if (activeSocket !== socket || stopped) return
+      clearTimeout(connectionDeadline)
+      synchronized = false
       options.unsynchronized()
       options.state(
         options.online() ? 'reconnecting' : 'disconnected',
       )
-      schedule()
+      scheduleReconnect()
     }
   }
 
-  const schedule = (): void => {
-    clearTimeout(retry)
-    const delay = Math.min(30000, 1000 * 2 ** Math.min(attempts++, 5))
-    retry = setTimeout(() => connect(), delay)
+  const scheduleReconnect = (): void => {
+    clearTimeout(reconnectTimer)
+    const delay = Math.min(30000, 1000 * 2 ** Math.min(reconnectAttempts++, 5))
+    reconnectTimer = setTimeout(() => connect(), delay)
   }
 
-  const resync = (): void => {
-    if (!synced) return
-    localMetrics.gaps++
-    synced = false
+  const requestSnapshot = (): void => {
+    if (!synchronized) return
+    connectionMetrics.gaps++
+    synchronized = false
     options.unsynchronized()
     options.state('reconnecting')
     try {
-      localSocket?.send(JSON.stringify({ type: 'resync' }))
+      activeSocket?.send(JSON.stringify({ type: 'resync' }))
     } catch {
-      localSocket?.close()
+      activeSocket?.close()
       return
     }
-    clearTimeout(deadline)
-    deadline = setTimeout(() => localSocket?.close(), 10000)
+    clearTimeout(connectionDeadline)
+    connectionDeadline = setTimeout(() => activeSocket?.close(), 10000)
   }
 
-  const receive = (raw: string): void => {
+  const receiveMessage = (raw: string): void => {
     let value: ServerMessage
     try {
       const result = serverMessageSchema.safeParse(JSON.parse(raw))
       if (!result.success) {
-        localMetrics.invalid++
-        resync()
+        connectionMetrics.invalid++
+        requestSnapshot()
         return
       }
       value = result.data
     } catch {
-      localMetrics.invalid++
-      resync()
+      connectionMetrics.invalid++
+      requestSnapshot()
       return
     }
     if (value.type === 'portfolio') {
@@ -141,13 +141,13 @@ export const createMarketConnection = (options: Options) => {
       return
     }
     if (value.type === 'heartbeat') {
-      lastMessage = Date.now()
-      if (synced && Date.now() - openedAt > 10000) attempts = 0
+      lastMessageAt = Date.now()
+      if (synchronized && Date.now() - openedAt > 10000) reconnectAttempts = 0
       if (
-        synced &&
-        (value.session !== localSession || value.sequence !== localSequence)
+        synchronized &&
+        (value.session !== currentSession || value.sequence !== lastSequence)
       )
-        resync()
+        requestSnapshot()
       return
     }
     if (
@@ -158,64 +158,64 @@ export const createMarketConnection = (options: Options) => {
           (q.priceAt ?? 0) > Date.now() + 5000,
       )
     ) {
-      localMetrics.invalid++
-      resync()
+      connectionMetrics.invalid++
+      requestSnapshot()
       return
     }
     const frame = value
-    lastMessage = Date.now()
+    lastMessageAt = Date.now()
     if (frame.type === 'snapshot') {
       if (
-        synced &&
-        frame.session === localSession &&
-        frame.sequence <= localSequence
+        synchronized &&
+        frame.session === currentSession &&
+        frame.sequence <= lastSequence
       ) {
-        localMetrics.duplicate++
+        connectionMetrics.duplicate++
         return
       }
-      localSession = frame.session
-      localSequence = frame.sequence
-      synced = true
-      clearTimeout(deadline)
+      currentSession = frame.session
+      lastSequence = frame.sequence
+      synchronized = true
+      clearTimeout(connectionDeadline)
       options.state('connected')
     } else {
-      if (!synced) return
+      if (!synchronized) return
       if (
-        frame.session !== localSession ||
-        frame.sequence > localSequence + 1
+        frame.session !== currentSession ||
+        frame.sequence > lastSequence + 1
       ) {
-        resync()
+        requestSnapshot()
         return
       }
-      if (frame.sequence <= localSequence) {
-        localMetrics.duplicate++
+      if (frame.sequence <= lastSequence) {
+        connectionMetrics.duplicate++
         return
       }
-      localSequence = frame.sequence
+      lastSequence = frame.sequence
     }
-    if (Date.now() - openedAt > 10000) attempts = 0
+    if (Date.now() - openedAt > 10000) reconnectAttempts = 0
     options.frame(frame)
   }
 
   const reconnect = (): void => {
     if (stopped) return
-    clearTimeout(retry)
-    if (localSocket && localSocket.readyState < 2) localSocket.close()
+    clearTimeout(reconnectTimer)
+    if (activeSocket && activeSocket.readyState < 2) activeSocket.close()
     else connect()
   }
 
   const stop = (): void => {
     stopped = true
-    clearTimeout(retry)
-    clearTimeout(deadline)
-    clearInterval(health)
-    if (localSocket) {
-      localSocket.onclose = null
-      localSocket.onmessage = null
-      localSocket.close()
+    clearTimeout(reconnectTimer)
+    clearTimeout(connectionDeadline)
+    clearInterval(healthCheckTimer)
+    if (activeSocket) {
+      activeSocket.onclose = null
+      activeSocket.onmessage = null
+      activeSocket.close()
     }
   }
 
-  return { start, reconnect, stop, metrics: localMetrics }
+  return { start, reconnect, stop, metrics: connectionMetrics }
 }
 export type MarketConnection = ReturnType<typeof createMarketConnection>
