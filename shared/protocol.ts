@@ -90,7 +90,7 @@ export type ServerMessage =
   | { type: 'portfolio'; data: Portfolio }
   | { type: 'heartbeat'; session: string; sequence: number }
 export const STALE_AFTER_MS = 60000
-export function validQuote(q: Quote, now = Date.now()): boolean {
+export const validQuote = (q: Quote, now = Date.now()): boolean => {
   return (
     quoteSchema.safeParse(q).success &&
     q.updatedAt <= now + 5000 &&
@@ -98,7 +98,7 @@ export function validQuote(q: Quote, now = Date.now()): boolean {
     (q.priceAt === undefined || q.priceAt <= now + 5000)
   )
 }
-export function staleQuote(q: Quote | undefined, now: number): boolean {
+export const staleQuote = (q: Quote | undefined, now: number): boolean => {
   return (
     !q ||
     now - (q.priceAt ?? q.updatedAt) > STALE_AFTER_MS ||

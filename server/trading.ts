@@ -22,7 +22,8 @@ export const orderSchema = z
   })
   .strict()
 export type OrderInput = z.infer<typeof orderSchema>
-export class TradingError extends Error {}
+export const createTradingError = (message: string): Error =>
+  Object.assign(new Error(message), { name: 'TradingError' })
 export const freshPortfolio = (): Portfolio => ({
   requests: [],
   initialCash: 10_000,
@@ -33,13 +34,13 @@ export const freshPortfolio = (): Portfolio => ({
 })
 
 /** Pure calculation: the caller persists the returned state before accepting a fill. */
-export function executeOrder(
+export const executeOrder = (
   current: Portfolio,
   input: OrderInput,
   quote: Quote | undefined,
   mode: MarketMode,
   now = Date.now(),
-): Portfolio {
+): Portfolio => {
   input = orderSchema.parse(input)
   if (
     !quote ||
@@ -49,7 +50,7 @@ export function executeOrder(
     now - quote.updatedAt > 60_000 ||
     now - quote.quoteAt > 60_000
   )
-    throw new TradingError(
+    throw createTradingError(
       'Waiting for a fresh market quote. Try again when the feed is connected.',
     )
   if (
@@ -58,7 +59,7 @@ export function executeOrder(
     ) ||
     quote.bid > quote.ask
   )
-    throw new TradingError('This market quote cannot be used for a fill.')
+    throw createTradingError('This market quote cannot be used for a fill.')
   const next = structuredClone(current)
   const quantity = new Decimal(input.quantity)
   const price = new Decimal(input.side === 'buy' ? quote.ask : quote.bid)
@@ -66,7 +67,7 @@ export function executeOrder(
   const position = next.positions.find((item) => item.symbol === input.symbol)
   if (input.side === 'buy') {
     if (total.gt(next.cash))
-      throw new TradingError('Not enough available cash for this order.')
+      throw createTradingError('Not enough available cash for this order.')
     const oldQuantity = new Decimal(position?.quantity ?? 0)
     const newQuantity = oldQuantity.plus(quantity)
     const averagePrice = oldQuantity
@@ -86,7 +87,7 @@ export function executeOrder(
     next.cash = new Decimal(next.cash).minus(total).toNumber()
   } else {
     if (!position || quantity.gt(position.quantity))
-      throw new TradingError(
+      throw createTradingError(
         'You can only sell assets held in your paper portfolio.',
       )
     next.realizedPnl = new Decimal(next.realizedPnl)

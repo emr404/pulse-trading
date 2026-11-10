@@ -21,54 +21,54 @@ interface Options {
   unsynchronized(): void
   online(): boolean
 }
-export class MarketConnection {
-  private socket?: Socket
-  private retry?: ReturnType<typeof setTimeout>
-  private health?: ReturnType<typeof setInterval>
-  private deadline?: ReturnType<typeof setTimeout>
-  private stopped = true
-  private attempts = 0
-  private session = ''
-  private sequence = -1
-  private synced = false
-  private lastMessage = 0
-  private openedAt = 0
-  readonly metrics = { invalid: 0, duplicate: 0, gaps: 0 }
-  constructor(private options: Options) {}
-  start(): void {
-    if (!this.stopped) return
-    this.stopped = false
-    this.connect()
-    this.health = setInterval(() => {
+export const createMarketConnection = (options: Options) => {
+  let localSocket: Socket | undefined = undefined
+  let retry: ReturnType<typeof setTimeout> | undefined = undefined
+  let health: ReturnType<typeof setInterval> | undefined = undefined
+  let deadline: ReturnType<typeof setTimeout> | undefined = undefined
+  let stopped = true
+  let attempts = 0
+  let localSession = ''
+  let localSequence = -1
+  let synced = false
+  let lastMessage = 0
+  let openedAt = 0
+  const localMetrics = { invalid: 0, duplicate: 0, gaps: 0 }
+  const start = (): void => {
+    if (!stopped) return
+    stopped = false
+    connect()
+    health = setInterval(() => {
       if (
-        this.socket?.readyState === 1 &&
-        Date.now() - this.lastMessage > 25000
+        localSocket?.readyState === 1 &&
+        Date.now() - lastMessage > 25000
       )
-        this.socket.close()
+        localSocket.close()
     }, 1000)
   }
-  private connect(): void {
-    if (this.stopped) return
-    if (!this.options.online()) {
-      this.options.state('disconnected')
-      this.schedule()
+
+  const connect = (): void => {
+    if (stopped) return
+    if (!options.online()) {
+      options.state('disconnected')
+      schedule()
       return
     }
-    this.options.state(this.attempts ? 'reconnecting' : 'connecting')
+    options.state(attempts ? 'reconnecting' : 'connecting')
     let socket: Socket
     try {
-      socket = this.options.socket()
-      this.socket = socket
+      socket = options.socket()
+      localSocket = socket
     } catch {
-      this.options.unsynchronized()
-      this.options.state('reconnecting')
-      this.schedule()
+      options.unsynchronized()
+      options.state('reconnecting')
+      schedule()
       return
     }
-    this.deadline = setTimeout(() => socket.close(), 10000)
+    deadline = setTimeout(() => socket.close(), 10000)
     socket.onopen = () => {
-      if (this.socket !== socket || this.stopped) return
-      this.openedAt = this.lastMessage = Date.now()
+      if (localSocket !== socket || stopped) return
+      openedAt = lastMessage = Date.now()
       try {
         socket.send(JSON.stringify({ type: 'subscribe' }))
       } catch {
@@ -76,75 +76,78 @@ export class MarketConnection {
       }
     }
     socket.onmessage = (event) => {
-      if (this.socket !== socket || this.stopped) return
+      if (localSocket !== socket || stopped) return
       try {
-        this.receive(event.data)
+        receive(event.data)
       } catch {
-        this.synced = false
-        this.options.unsynchronized()
-        this.options.state('reconnecting')
+        synced = false
+        options.unsynchronized()
+        options.state('reconnecting')
         socket.close()
       }
     }
     socket.onerror = () => socket.close()
     socket.onclose = () => {
-      if (this.socket !== socket || this.stopped) return
-      clearTimeout(this.deadline)
-      this.synced = false
-      this.options.unsynchronized()
-      this.options.state(
-        this.options.online() ? 'reconnecting' : 'disconnected',
+      if (localSocket !== socket || stopped) return
+      clearTimeout(deadline)
+      synced = false
+      options.unsynchronized()
+      options.state(
+        options.online() ? 'reconnecting' : 'disconnected',
       )
-      this.schedule()
+      schedule()
     }
   }
-  private schedule(): void {
-    clearTimeout(this.retry)
-    const delay = Math.min(30000, 1000 * 2 ** Math.min(this.attempts++, 5))
-    this.retry = setTimeout(() => this.connect(), delay)
+
+  const schedule = (): void => {
+    clearTimeout(retry)
+    const delay = Math.min(30000, 1000 * 2 ** Math.min(attempts++, 5))
+    retry = setTimeout(() => connect(), delay)
   }
-  private resync(): void {
-    if (!this.synced) return
-    this.metrics.gaps++
-    this.synced = false
-    this.options.unsynchronized()
-    this.options.state('reconnecting')
+
+  const resync = (): void => {
+    if (!synced) return
+    localMetrics.gaps++
+    synced = false
+    options.unsynchronized()
+    options.state('reconnecting')
     try {
-      this.socket?.send(JSON.stringify({ type: 'resync' }))
+      localSocket?.send(JSON.stringify({ type: 'resync' }))
     } catch {
-      this.socket?.close()
+      localSocket?.close()
       return
     }
-    clearTimeout(this.deadline)
-    this.deadline = setTimeout(() => this.socket?.close(), 10000)
+    clearTimeout(deadline)
+    deadline = setTimeout(() => localSocket?.close(), 10000)
   }
-  private receive(raw: string): void {
+
+  const receive = (raw: string): void => {
     let value: ServerMessage
     try {
       const result = serverMessageSchema.safeParse(JSON.parse(raw))
       if (!result.success) {
-        this.metrics.invalid++
-        this.resync()
+        localMetrics.invalid++
+        resync()
         return
       }
       value = result.data
     } catch {
-      this.metrics.invalid++
-      this.resync()
+      localMetrics.invalid++
+      resync()
       return
     }
     if (value.type === 'portfolio') {
-      this.options.portfolio(value.data)
+      options.portfolio(value.data)
       return
     }
     if (value.type === 'heartbeat') {
-      this.lastMessage = Date.now()
-      if (this.synced && Date.now() - this.openedAt > 10000) this.attempts = 0
+      lastMessage = Date.now()
+      if (synced && Date.now() - openedAt > 10000) attempts = 0
       if (
-        this.synced &&
-        (value.session !== this.session || value.sequence !== this.sequence)
+        synced &&
+        (value.session !== localSession || value.sequence !== localSequence)
       )
-        this.resync()
+        resync()
       return
     }
     if (
@@ -155,59 +158,64 @@ export class MarketConnection {
           (q.priceAt ?? 0) > Date.now() + 5000,
       )
     ) {
-      this.metrics.invalid++
-      this.resync()
+      localMetrics.invalid++
+      resync()
       return
     }
     const frame = value
-    this.lastMessage = Date.now()
+    lastMessage = Date.now()
     if (frame.type === 'snapshot') {
       if (
-        this.synced &&
-        frame.session === this.session &&
-        frame.sequence <= this.sequence
+        synced &&
+        frame.session === localSession &&
+        frame.sequence <= localSequence
       ) {
-        this.metrics.duplicate++
+        localMetrics.duplicate++
         return
       }
-      this.session = frame.session
-      this.sequence = frame.sequence
-      this.synced = true
-      clearTimeout(this.deadline)
-      this.options.state('connected')
+      localSession = frame.session
+      localSequence = frame.sequence
+      synced = true
+      clearTimeout(deadline)
+      options.state('connected')
     } else {
-      if (!this.synced) return
+      if (!synced) return
       if (
-        frame.session !== this.session ||
-        frame.sequence > this.sequence + 1
+        frame.session !== localSession ||
+        frame.sequence > localSequence + 1
       ) {
-        this.resync()
+        resync()
         return
       }
-      if (frame.sequence <= this.sequence) {
-        this.metrics.duplicate++
+      if (frame.sequence <= localSequence) {
+        localMetrics.duplicate++
         return
       }
-      this.sequence = frame.sequence
+      localSequence = frame.sequence
     }
-    if (Date.now() - this.openedAt > 10000) this.attempts = 0
-    this.options.frame(frame)
+    if (Date.now() - openedAt > 10000) attempts = 0
+    options.frame(frame)
   }
-  reconnect(): void {
-    if (this.stopped) return
-    clearTimeout(this.retry)
-    if (this.socket && this.socket.readyState < 2) this.socket.close()
-    else this.connect()
+
+  const reconnect = (): void => {
+    if (stopped) return
+    clearTimeout(retry)
+    if (localSocket && localSocket.readyState < 2) localSocket.close()
+    else connect()
   }
-  stop(): void {
-    this.stopped = true
-    clearTimeout(this.retry)
-    clearTimeout(this.deadline)
-    clearInterval(this.health)
-    if (this.socket) {
-      this.socket.onclose = null
-      this.socket.onmessage = null
-      this.socket.close()
+
+  const stop = (): void => {
+    stopped = true
+    clearTimeout(retry)
+    clearTimeout(deadline)
+    clearInterval(health)
+    if (localSocket) {
+      localSocket.onclose = null
+      localSocket.onmessage = null
+      localSocket.close()
     }
   }
+
+  return { start, reconnect, stop, metrics: localMetrics }
 }
+export type MarketConnection = ReturnType<typeof createMarketConnection>

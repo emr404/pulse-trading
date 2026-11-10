@@ -6,10 +6,10 @@ export interface PortfolioValuation {
   unrealized: number
   totalPnl: number
 }
-export function valuePortfolio(
+export const valuePortfolio = (
   portfolio: Portfolio | null,
   quote: (symbol: string) => Quote | undefined,
-): PortfolioValuation {
+): PortfolioValuation => {
   let marketValue = new Decimal(0),
     cost = new Decimal(0)
   for (const position of portfolio?.positions ?? []) {

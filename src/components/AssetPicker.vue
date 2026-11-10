@@ -87,14 +87,14 @@ const results = computed(() =>
     `${a.symbol} ${a.name}`.toLowerCase().includes(query.value.toLowerCase()),
   ),
 )
-function choose(symbol: string): void {
+const choose = (symbol: string): void => {
   if (props.watchMode) store.toggleWatch(symbol)
   else {
     store.openStock(symbol)
     emit('close')
   }
 }
-function keydown(event: KeyboardEvent): void {
+const keydown = (event: KeyboardEvent): void => {
   if (event.key === 'Escape') emit('close')
   if (event.key === 'Tab') {
     const nodes = dialog.value?.querySelectorAll<HTMLElement>('button,input')

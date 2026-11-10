@@ -1,10 +1,10 @@
 import { z } from 'zod'
 
-export function readLocal<T>(
+export const readLocal = <T>(
   key: string,
   schema: z.ZodType<T>,
   fallback: T,
-): T {
+): T => {
   try {
     const raw = localStorage.getItem(key)
     if (raw === null) return fallback
@@ -15,10 +15,10 @@ export function readLocal<T>(
   }
 }
 
-export function writeLocal(
+export const writeLocal = (
   key: string,
   value: string | boolean | string[],
-): void {
+): void => {
   try {
     localStorage.setItem(key, JSON.stringify(value))
   } catch {

@@ -6,12 +6,12 @@ import {
   type Range,
 } from '../../shared/types.js'
 import type { MarketProvider } from './types.js'
-export function demoCandles(
+export const demoCandles = (
   asset: Asset,
   range: Range,
   price: number,
   now = Date.now(),
-): Candle[] {
+): Candle[] => {
   const { seconds, days } = RANGE_CONFIG[range]
   const count = Math.min(365, Math.floor((days * 86400) / seconds))
   let seed =
@@ -47,55 +47,26 @@ export function demoCandles(
     close: b.close * factor,
   }))
 }
-export class DemoProvider implements MarketProvider {
-  private timer?: ReturnType<typeof setInterval>
-  private state: MarketSnapshot
-  constructor(
-    assets: Asset[],
-    message = 'Simulated prices and historical data. No exchange connection.',
-  ) {
-    this.state = {
-      assets,
-      quotes: assets.map((a) => ({
-        symbol: a.symbol,
-        price: a.demoPrice,
-        bid: a.demoPrice - 0.01,
-        ask: a.demoPrice + 0.01,
-        changePct: a.demoChange,
-        previousClose: a.demoPrice / (1 + a.demoChange / 100),
-        high: a.demoPrice * 1.012,
-        low: a.demoPrice * 0.983,
-        volume: Math.floor(12000000 + a.demoPrice * 80000),
-        updatedAt: Date.now(),
-        quoteAt: Date.now(),
-      })),
-      status: {
-        mode: 'demo',
-        state: 'connected',
-        provider: 'Simulation engine',
-        message,
-        lastMessageAt: Date.now(),
-      },
-      trails: {},
-    }
-    for (const a of assets)
-      this.state.trails[a.symbol] = demoCandles(a, '1D', a.demoPrice)
-        .slice(-30)
-        .map((b) => b.close)
+export const createDemoProvider = (
+  assets: Asset[],
+  message = 'Simulated prices and historical data. No exchange connection.',
+) => {
+  let timer: ReturnType<typeof setInterval> | undefined = undefined
+  let localState: MarketSnapshot
+  const snapshot = (): MarketSnapshot => {
+    return localState
   }
-  snapshot(): MarketSnapshot {
-    return this.state
-  }
-  start(onUpdate: () => void): void {
-    this.timer = setInterval(() => {
+
+  const start = (onUpdate: () => void): void => {
+    timer = setInterval(() => {
       const now = Date.now()
-      this.state.quotes = this.state.quotes.map((q) => {
+      localState.quotes = localState.quotes.map((q) => {
         const price = Math.max(
           0.1,
           q.price * (1 + (Math.random() - 0.5) * 0.0006),
         )
-        this.state.trails[q.symbol] = [
-          ...this.state.trails[q.symbol].slice(-29),
+        localState.trails[q.symbol] = [
+          ...localState.trails[q.symbol].slice(-29),
           price,
         ]
         return {
@@ -111,21 +82,55 @@ export class DemoProvider implements MarketProvider {
           quoteAt: now,
         }
       })
-      this.state.status.lastMessageAt = now
+      localState.status.lastMessageAt = now
       onUpdate()
     }, 1800)
     onUpdate()
   }
-  stop(): void {
-    clearInterval(this.timer)
+
+  const stop = (): void => {
+    clearInterval(timer)
   }
-  async candles(symbol: string, range: Range): Promise<Candle[]> {
-    const asset = this.state.assets.find((a) => a.symbol === symbol)
+
+  const candles = async (symbol: string, range: Range): Promise<Candle[]> => {
+    const asset = localState.assets.find((a) => a.symbol === symbol)
     if (!asset) throw new Error('Unknown symbol.')
     return demoCandles(
       asset,
       range,
-      this.state.quotes.find((q) => q.symbol === symbol)!.price,
+      localState.quotes.find((q) => q.symbol === symbol)!.price,
     )
   }
+
+  localState = {
+    assets,
+    quotes: assets.map((a) => ({
+      symbol: a.symbol,
+      price: a.demoPrice,
+      bid: a.demoPrice - 0.01,
+      ask: a.demoPrice + 0.01,
+      changePct: a.demoChange,
+      previousClose: a.demoPrice / (1 + a.demoChange / 100),
+      high: a.demoPrice * 1.012,
+      low: a.demoPrice * 0.983,
+      volume: Math.floor(12000000 + a.demoPrice * 80000),
+      updatedAt: Date.now(),
+      quoteAt: Date.now(),
+    })),
+    status: {
+      mode: 'demo',
+      state: 'connected',
+      provider: 'Simulation engine',
+      message,
+      lastMessageAt: Date.now(),
+    },
+    trails: {},
+  }
+  for (const a of assets)
+    localState.trails[a.symbol] = demoCandles(a, '1D', a.demoPrice)
+      .slice(-30)
+      .map((b) => b.close)
+
+  return { snapshot, start, stop, candles }
 }
+export type DemoProvider = ReturnType<typeof createDemoProvider>

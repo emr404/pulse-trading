@@ -20,20 +20,20 @@ const schema = z.discriminatedUnion('T', [
     })
     .refine((e) => e.bp <= e.ap),
 ])
-export class EventProcessor {
-  private trades = new Map<string, number>()
-  private quotes = new Map<string, number>()
-  private seen = new Set<string>()
-  readonly metrics = { accepted: 0, duplicate: 0, invalid: 0, delayed: 0 }
-  process(
+export const createEventProcessor = () => {
+  const trades = new Map<string, number>()
+  const quotes = new Map<string, number>()
+  const seen = new Set<string>()
+  const localMetrics = { accepted: 0, duplicate: 0, invalid: 0, delayed: 0 }
+  const process = (
     input: AlpacaEvent,
     existing: Quote | undefined,
     previousClose: number | null,
     now = Date.now(),
-  ): Quote | undefined {
+  ): Quote | undefined => {
     const result = schema.safeParse(input)
     if (!result.success) {
-      this.metrics.invalid++
+      localMetrics.invalid++
       return
     }
     const e = result.data,
@@ -43,28 +43,28 @@ export class EventProcessor {
       timestamp > now + 5000 ||
       now - timestamp > 60000
     ) {
-      this.metrics.delayed++
+      localMetrics.delayed++
       return
     }
-    const channel = e.T === 't' ? this.trades : this.quotes
+    const channel = e.T === 't' ? trades : quotes
     if (timestamp < (channel.get(e.S) ?? 0)) {
-      this.metrics.delayed++
+      localMetrics.delayed++
       return
     }
     const id =
       e.T === 't'
         ? `t:${e.S}:${e.t.slice(0, 10)}:${e.i ?? `${e.t}:${e.p}:${e.s}`}`
         : `q:${e.S}:${e.t}:${e.bp}:${e.ap}`
-    if (this.seen.has(id)) {
-      this.metrics.duplicate++
+    if (seen.has(id)) {
+      localMetrics.duplicate++
       return
     }
-    this.seen.add(id)
-    if (this.seen.size > 20000)
-      this.seen.delete(this.seen.values().next().value!)
+    seen.add(id)
+    if (seen.size > 20000)
+      seen.delete(seen.values().next().value!)
     channel.set(e.S, timestamp)
     const price = e.T === 't' ? e.p : (existing?.price ?? (e.bp + e.ap) / 2)
-    this.metrics.accepted++
+    localMetrics.accepted++
     return {
       symbol: e.S,
       price,
@@ -80,4 +80,7 @@ export class EventProcessor {
       volume: (existing?.volume ?? 0) + (e.T === 't' ? e.s : 0),
     }
   }
+
+  return { process, metrics: localMetrics }
 }
+export type EventProcessor = ReturnType<typeof createEventProcessor>

@@ -2,28 +2,22 @@ import { z } from 'zod'
 import { apiErrorSchema } from '../../shared/api'
 import { apiUrl } from './endpoints'
 
-export class ApiError extends Error {
-  constructor(
-    message: string,
-    readonly status: number,
-  ) {
-    super(message)
-    this.name = 'ApiError'
-  }
-}
+export interface ApiError extends Error { status: number }
+export const createApiError = (message: string, status: number): ApiError =>
+  Object.assign(new Error(message), { name: 'ApiError', status })
 
-export async function api<T>(
+export const api = async <T>(
   path: string,
   schema: z.ZodType<T>,
   init?: RequestInit,
-): Promise<T> {
+): Promise<T> => {
   const signal = init?.signal ?? AbortSignal.timeout(10000)
   let response: Response
   try {
     response = await fetch(apiUrl(path), { ...init, signal })
   } catch (error) {
     if (signal.aborted) throw error
-    throw new ApiError(
+    throw createApiError(
       'Unable to reach the server. Check your connection and retry.',
       0,
     )
@@ -37,12 +31,12 @@ export async function api<T>(
     } catch {
       // Proxies may return HTML instead of the API's JSON error envelope.
     }
-    throw new ApiError(message, response.status)
+    throw createApiError(message, response.status)
   }
   try {
     return schema.parse(JSON.parse(text))
   } catch {
-    throw new ApiError(
+    throw createApiError(
       'The server returned an invalid response. Please retry.',
       response.status,
     )

@@ -13,11 +13,11 @@ export const useOrders = defineStore('orders', () => {
     account.portfolio?.requests?.find((r) => r.id === activeId.value),
   )
   const controllers = new Set<AbortController>()
-  async function submit(input: {
+  const submit = async (input: {
     symbol: string
     side: 'buy' | 'sell'
     quantity: number
-  }): Promise<Order> {
+  }): Promise<Order> => {
     const id = crypto.randomUUID()
     activeId.value = id
     const controller = new AbortController()
@@ -88,14 +88,14 @@ export const useOrders = defineStore('orders', () => {
       controllers.delete(controller)
     }
   }
-  async function cancel(id: string): Promise<OrderRequest> {
+  const cancel = async (id: string): Promise<OrderRequest> => {
     const result = await api(`/api/orders/${id}/cancel`, orderResponseSchema, {
       method: 'POST',
     })
     account.apply(result.portfolio)
     return result.order
   }
-  function stop(): void {
+  const stop = (): void => {
     controllers.forEach((c) => c.abort())
     controllers.clear()
   }

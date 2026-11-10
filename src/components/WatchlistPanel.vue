@@ -84,7 +84,7 @@ const rows = computed(() => {
   )
   return ascending.value ? sorted : sorted.reverse()
 })
-function setSort(value: 'price' | 'change'): void {
+const setSort = (value: 'price' | 'change'): void => {
   ascending.value = sort.value === value ? !ascending.value : false
   sort.value = value
 }

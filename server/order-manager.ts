@@ -3,7 +3,7 @@ import type { MarketSnapshot, Portfolio } from '../shared/types.js'
 import {
   executeOrder,
   orderSchema,
-  TradingError,
+  createTradingError,
   type OrderInput,
 } from './trading.js'
 interface Store {
@@ -11,59 +11,42 @@ interface Store {
   save(value: Portfolio): Portfolio
 }
 /** Single-writer lifecycle. A fill and its terminal state commit in one atomic save. */
-export class OrderPersistenceError extends Error {
-  constructor() {
-    super(
-      'Order storage is unavailable. Check Activity before retrying; execution could not be confirmed.',
-    )
-    this.name = 'OrderPersistenceError'
+export const createOrderPersistenceError = (): Error =>
+  Object.assign(new Error('Order storage is unavailable. Check Activity before retrying; execution could not be confirmed.'), { name: 'OrderPersistenceError' })
+export const createOrderManager = (
+  store: Store,
+  market: () => MarketSnapshot,
+  publish: (p: Portfolio) => void,
+  delay = 700,
+) => {
+  let persistenceFailed = false
+  const failedRequests = new Set<string>()
+  const timers = new Map<string, ReturnType<typeof setTimeout>>()
+  const get = (id: string): OrderRequest | undefined => {
+    if (failedRequests.has(id)) throw createOrderPersistenceError()
+    return store.get().requests?.find((r) => r.id === id)
   }
-}
-export class OrderManager {
-  private persistenceFailed = false
-  private failedRequests = new Set<string>()
-  private timers = new Map<string, ReturnType<typeof setTimeout>>()
-  constructor(
-    private store: Store,
-    private market: () => MarketSnapshot,
-    private publish: (p: Portfolio) => void,
-    private delay = 700,
-  ) {
-    const value = store.get()
-    let changed = false
-    for (const request of value.requests ?? [])
-      if (request.state === 'pending') {
-        request.state = 'cancelled'
-        request.reason = 'Server restarted before execution.'
-        request.updatedAt = Date.now()
-        changed = true
-      }
-    if (changed) store.save(value)
-  }
-  get(id: string): OrderRequest | undefined {
-    if (this.failedRequests.has(id)) throw new OrderPersistenceError()
-    return this.store.get().requests?.find((r) => r.id === id)
-  }
-  submit(id: string, input: OrderInput): OrderRequest {
-    if (this.persistenceFailed) throw new OrderPersistenceError()
+
+  const submit = (id: string, input: OrderInput): OrderRequest => {
+    if (persistenceFailed) throw createOrderPersistenceError()
     input = orderSchema.parse(input)
-    const existing = this.get(id)
+    const existing = get(id)
     if (existing) {
       if (
         existing.symbol !== input.symbol ||
         existing.side !== input.side ||
         existing.quantity !== input.quantity
       )
-        throw new TradingError(
+        throw createTradingError(
           'This order ID has already been used for different instructions.',
         )
       return existing
     }
-    const value = this.store.get()
+    const value = store.get()
     if (
       (value.requests ?? []).filter((r) => r.state === 'pending').length >= 20
     )
-      throw new TradingError('Too many pending orders.')
+      throw createTradingError('Too many pending orders.')
     const request: OrderRequest = {
       id,
       ...input,
@@ -72,36 +55,37 @@ export class OrderManager {
       updatedAt: Date.now(),
     }
     value.requests = [request, ...(value.requests ?? [])].slice(0, 200)
-    this.publish(this.store.save(value))
-    this.timers.set(
+    publish(store.save(value))
+    timers.set(
       id,
       setTimeout(() => {
-        this.timers.delete(id)
+        timers.delete(id)
         try {
-          this.settle(id)
+          settle(id)
         } catch (error) {
-          this.persistenceFailed = true
-          this.failedRequests.add(id)
+          persistenceFailed = true
+          failedRequests.add(id)
           console.error(
             'Order persistence failed; request remains pending:',
             error instanceof Error ? error.message : 'Unknown failure',
           )
         }
-      }, this.delay),
+      }, delay),
     )
     return request
   }
-  settle(id: string): OrderRequest | undefined {
-    const current = this.store.get(),
+
+  const settle = (id: string): OrderRequest | undefined => {
+    const current = store.get(),
       request = current.requests?.find((r) => r.id === id)
     if (!request || request.state !== 'pending') return request
     let next: Portfolio
     try {
-      const snapshot = this.market()
+      const snapshot = market()
       if (snapshot.status.state !== 'connected')
-        throw new TradingError('Market data is disconnected.')
+        throw createTradingError('Market data is disconnected.')
       if (!snapshot.assets.some((a) => a.symbol === request.symbol))
-        throw new TradingError('Stock is unavailable.')
+        throw createTradingError('Stock is unavailable.')
       next = executeOrder(
         current,
         {
@@ -117,37 +101,53 @@ export class OrderManager {
       result.fillId = next.orders[0].id
       result.updatedAt = Date.now()
     } catch (error) {
-      if (!(error instanceof TradingError)) throw error
+      if (!((error instanceof Error && error.name === 'TradingError'))) throw error
       next = current
       request.state = 'rejected'
       request.reason = error.message
       request.updatedAt = Date.now()
     }
-    this.publish(this.store.save(next))
-    return this.get(id)
+    publish(store.save(next))
+    return get(id)
   }
-  cancel(id: string): OrderRequest {
-    const value = this.store.get(),
+
+  const cancel = (id: string): OrderRequest => {
+    const value = store.get(),
       request = value.requests?.find((r) => r.id === id)
-    if (!request) throw new TradingError('Order not found.')
+    if (!request) throw createTradingError('Order not found.')
     if (request.state !== 'pending') return request
-    clearTimeout(this.timers.get(id))
-    this.timers.delete(id)
+    clearTimeout(timers.get(id))
+    timers.delete(id)
     request.state = 'cancelled'
     request.reason = 'Cancelled before execution.'
     request.updatedAt = Date.now()
-    this.publish(this.store.save(value))
+    publish(store.save(value))
     return request
   }
-  stop(): void {
-    for (const [id, timer] of this.timers) {
+
+  const stop = (): void => {
+    for (const [id, timer] of timers) {
       clearTimeout(timer)
       try {
-        this.cancel(id)
+        cancel(id)
       } catch {
-        this.failedRequests.add(id)
+        failedRequests.add(id)
       }
     }
-    this.timers.clear()
+    timers.clear()
   }
+
+  const value = store.get()
+  let changed = false
+  for (const request of value.requests ?? [])
+    if (request.state === 'pending') {
+      request.state = 'cancelled'
+      request.reason = 'Server restarted before execution.'
+      request.updatedAt = Date.now()
+      changed = true
+    }
+  if (changed) store.save(value)
+
+  return { get, submit, settle, cancel, stop }
 }
+export type OrderManager = ReturnType<typeof createOrderManager>

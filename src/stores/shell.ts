@@ -35,28 +35,28 @@ export const useShell = defineStore('shell', () => {
       ? 'Regular hours*'
       : 'Outside regular hours*'
   })
-  function dismissOverlays(): void {
+  const dismissOverlays = (): void => {
     store.notificationsOpen = false
     profile.value = false
     mobileNav.value = false
   }
-  function navigate(page: Page): void {
+  const navigate = (page: Page): void => {
     store.page = page
     dismissOverlays()
   }
-  function toggleNotifications(): void {
+  const toggleNotifications = (): void => {
     store.notificationsOpen = !store.notificationsOpen
     profile.value = false
   }
-  function toggleProfile(): void {
+  const toggleProfile = (): void => {
     profile.value = !profile.value
     store.notificationsOpen = false
   }
-  function dismissNotifications(): void {
+  const dismissNotifications = (): void => {
     store.notice = ''
     store.notificationsOpen = false
   }
-  function shortcut(event: KeyboardEvent): void {
+  const shortcut = (event: KeyboardEvent): void => {
     if ((event.metaKey || event.ctrlKey) && event.key === 'k') {
       event.preventDefault()
       picker.value = !picker.value

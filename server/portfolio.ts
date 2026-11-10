@@ -52,24 +52,27 @@ export const portfolioSchema = z.object({
 })
 
 /** Single-user local MVP. Atomic replacement prevents partially written JSON. */
-export class PortfolioStore {
-  private value: Portfolio
-  constructor(private file: string) {
-    mkdirSync(dirname(file), { recursive: true })
-    this.value = existsSync(file)
-      ? portfolioSchema.parse(JSON.parse(readFileSync(file, 'utf8')))
-      : freshPortfolio()
+export const createPortfolioStore = (file: string) => {
+  let localValue: Portfolio
+  const get = (): Portfolio => {
+    return structuredClone(localValue)
   }
-  get(): Portfolio {
-    return structuredClone(this.value)
-  }
-  save(value: Portfolio): Portfolio {
+
+  const save = (value: Portfolio): Portfolio => {
     const validated = portfolioSchema.parse(value)
-    writeFileSync(`${this.file}.tmp`, JSON.stringify(validated, null, 2), {
+    writeFileSync(`${file}.tmp`, JSON.stringify(validated, null, 2), {
       mode: 0o600,
     })
-    renameSync(`${this.file}.tmp`, this.file)
-    this.value = validated
-    return this.get()
+    renameSync(`${file}.tmp`, file)
+    localValue = validated
+    return get()
   }
+
+  mkdirSync(dirname(file), { recursive: true })
+  localValue = existsSync(file)
+    ? portfolioSchema.parse(JSON.parse(readFileSync(file, 'utf8')))
+    : freshPortfolio()
+
+  return { get, save }
 }
+export type PortfolioStore = ReturnType<typeof createPortfolioStore>

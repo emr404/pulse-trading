@@ -1,9 +1,9 @@
 import 'dotenv/config'
-import { ExchangeRateService } from './exchange-rates.js'
+import { createExchangeRateService } from './exchange-rates.js'
 import express from 'express'
 import { z } from 'zod'
-import { MarketHub } from './market-hub.js'
-import { OrderManager, OrderPersistenceError } from './order-manager.js'
+import { createMarketHub } from './market-hub.js'
+import { createOrderManager } from './order-manager.js'
 import { clientMessageSchema, type ServerMessage } from '../shared/protocol.js'
 import { resolve } from 'node:path'
 import { WebSocketServer, WebSocket } from 'ws'
@@ -14,15 +14,14 @@ import {
   type Range,
   type StreamMessage,
 } from '../shared/types.js'
-import { PortfolioStore } from './portfolio.js'
+import { createPortfolioStore } from './portfolio.js'
 import {
   executeOrder,
   orderSchema,
-  TradingError,
   symbolSchema,
 } from './trading.js'
-import { DemoProvider } from './providers/demo.js'
-import { AlpacaProvider } from './providers/alpaca.js'
+import { createDemoProvider } from './providers/demo.js'
+import { createAlpacaProvider } from './providers/alpaca.js'
 import type { MarketProvider } from './providers/types.js'
 
 const symbols = [
@@ -49,20 +48,20 @@ const hasKeys = Boolean(
 )
 const provider: MarketProvider =
   liveRequested && hasKeys
-    ? new AlpacaProvider(
-        assets,
-        process.env.ALPACA_API_KEY!,
-        process.env.ALPACA_SECRET_KEY!,
-        process.env.ALPACA_FEED === 'sip' ? 'sip' : 'iex',
-      )
-    : new DemoProvider(
-        assets,
-        liveRequested
-          ? 'Alpaca credentials are missing. Using clearly simulated data.'
-          : undefined,
-      )
+    ? createAlpacaProvider(
+      assets,
+      process.env.ALPACA_API_KEY!,
+      process.env.ALPACA_SECRET_KEY!,
+      process.env.ALPACA_FEED === 'sip' ? 'sip' : 'iex',
+    )
+    : createDemoProvider(
+      assets,
+      liveRequested
+        ? 'Alpaca credentials are missing. Using clearly simulated data.'
+        : undefined,
+    )
 const mode = provider.snapshot().status.mode
-const store = new PortfolioStore(
+const store = createPortfolioStore(
   process.env.DATA_FILE || `.data/stocks-${mode}.json`,
 )
 const app = express()
@@ -92,7 +91,7 @@ app.use('/api', (req, res, next) => {
 })
 app.get('/api/health', (_req, res) => res.json({ status: 'ok' }))
 app.use(express.json({ limit: '8kb' }))
-const exchangeRates = new ExchangeRateService()
+const exchangeRates = createExchangeRateService()
 app.get('/api/exchange-rates', async (_req, res) => {
   try {
     res.json(await exchangeRates.get())
@@ -131,7 +130,7 @@ app.get('/api/candles', async (req, res) => {
     })
   }
 })
-const manager = new OrderManager(
+const manager = createOrderManager(
   store,
   () => provider.snapshot(),
   (portfolio) => broadcast({ type: 'portfolio', data: portfolio }),
@@ -147,7 +146,7 @@ app.post('/api/orders', (req, res, next) => {
   try {
     res.status(202).json(manager.submit(parsed.data.id, parsed.data.input))
   } catch (error) {
-    if (error instanceof TradingError)
+    if (error instanceof Error && error.name === 'TradingError')
       res.status(409).json({ error: error.message })
     else next(error)
   }
@@ -164,7 +163,7 @@ app.post('/api/orders/:id/cancel', (req, res, next) => {
   try {
     res.json({ order: manager.cancel(req.params.id), portfolio: store.get() })
   } catch (error) {
-    if (error instanceof TradingError)
+    if (error instanceof Error && error.name === 'TradingError')
       res.status(404).json({ error: error.message })
     else next(error)
   }
@@ -183,7 +182,7 @@ app.use(
     console.error(error.message)
     res
       .status(
-        error instanceof OrderPersistenceError
+        (error instanceof Error && error.name === 'OrderPersistenceError')
           ? 503
           : error instanceof SyntaxError
             ? 400
@@ -191,7 +190,7 @@ app.use(
       )
       .json({
         error:
-          error instanceof OrderPersistenceError
+          (error instanceof Error && error.name === 'OrderPersistenceError')
             ? error.message
             : error instanceof SyntaxError
               ? 'Invalid JSON.'
@@ -213,8 +212,8 @@ const wss = new WebSocketServer({
   maxPayload: 4096,
   verifyClient: (info: { origin: string }) => originAllowed(info.origin),
 })
-const hub = new MarketHub(() => provider.snapshot())
-function sendEncoded(socket: WebSocket, payload: string): void {
+const hub = createMarketHub(() => provider.snapshot())
+const sendEncoded = (socket: WebSocket, payload: string): void => {
   if (socket.readyState !== WebSocket.OPEN) return
   if (socket.bufferedAmount > 1000000) {
     socket.close(1013, 'Slow consumer; reconnect for snapshot')
@@ -228,10 +227,10 @@ function sendEncoded(socket: WebSocket, payload: string): void {
     socket.terminate()
   }
 }
-function send(socket: WebSocket, message: ServerMessage): void {
+const send = (socket: WebSocket, message: ServerMessage): void => {
   sendEncoded(socket, JSON.stringify(message))
 }
-function broadcast(message: ServerMessage): void {
+const broadcast = (message: ServerMessage): void => {
   const payload = JSON.stringify(message)
   for (const client of wss.clients) sendEncoded(client, payload)
 }
@@ -267,11 +266,11 @@ const heartbeat = setInterval(
     broadcast({
       type: 'heartbeat',
       session: hub.session,
-      sequence: hub.sequence,
+      sequence: hub.getSequence(),
     }),
   10000,
 )
-function stop(): void {
+const stop = (): void => {
   clearInterval(updates)
   clearInterval(heartbeat)
   provider.stop()

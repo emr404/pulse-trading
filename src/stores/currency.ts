@@ -35,10 +35,10 @@ export const useCurrency = defineStore('currency', () => {
     return `${currency.value} · FX ${exchange.value.date}${exchange.value.cached || error.value ? ' (cached)' : ''}`
   })
   let controller: AbortController | undefined
-  function stop(): void {
+  const stop = (): void => {
     controller?.abort()
   }
-  async function refresh(): Promise<void> {
+  const refresh = async (): Promise<void> => {
     if (loading.value) return
     loading.value = true
     error.value = ''

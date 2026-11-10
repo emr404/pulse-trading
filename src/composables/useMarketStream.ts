@@ -1,12 +1,12 @@
 import { socketUrl } from '../lib/endpoints'
 import { onMounted, onUnmounted } from 'vue'
-import { MarketConnection } from '../modules/market/connection'
+import { createMarketConnection } from '../modules/market/connection'
 import { useMarket } from '../modules/market/store'
 import { usePortfolio } from '../modules/portfolio/store'
-export function useMarketStream(): { reconnect(): void } {
+export const useMarketStream = (): { reconnect(): void } => {
   const market = useMarket(),
     portfolio = usePortfolio()
-  const connection = new MarketConnection({
+  const connection = createMarketConnection({
     socket: () => new WebSocket(socketUrl()),
     online: () => navigator.onLine,
     frame: (frame) => market.apply(frame),

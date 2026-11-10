@@ -8,7 +8,7 @@ export interface AppLifecycle {
   reconnect(): void
 }
 
-export function useAppLifecycle(): AppLifecycle {
+export const useAppLifecycle = (): AppLifecycle => {
   const shell = useShell()
   const orders = useOrders()
   const currency = useCurrency()

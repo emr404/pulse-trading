@@ -1,11 +1,11 @@
 import { Decimal } from 'decimal.js'
-export function validateOrder(
+export const validateOrder = (
   quantity: number,
   side: 'buy' | 'sell',
   price: number,
   cash: number,
   held: number,
-): string {
+): string => {
   if (
     !Number.isFinite(quantity) ||
     quantity <= 0 ||
@@ -21,13 +21,13 @@ export function validateOrder(
     return 'Quantity exceeds your holdings.'
   return ''
 }
-export function sizeOrder(
+export const sizeOrder = (
   part: number,
   side: 'buy' | 'sell',
   price: number,
   cash: number,
   held: number,
-): number {
+): number => {
   if (
     ![part, price, cash, held].every(Number.isFinite) ||
     price <= 0 ||

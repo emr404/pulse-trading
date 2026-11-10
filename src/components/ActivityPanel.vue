@@ -99,7 +99,7 @@ const requests = computed(() =>
     (request) => request.state !== 'filled',
   ),
 )
-async function cancel(id: string): Promise<void> {
+const cancel = async (id: string): Promise<void> => {
   try {
     await orders.cancel(id)
   } catch {

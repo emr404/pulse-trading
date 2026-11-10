@@ -1,5 +1,5 @@
 import WebSocket from 'ws'
-import { EventProcessor } from './event-processor.js'
+import { createEventProcessor } from './event-processor.js'
 import { z } from 'zod'
 import {
   RANGE_CONFIG,
@@ -10,105 +10,95 @@ import {
 } from '../../shared/types.js'
 import type { MarketProvider } from './types.js'
 import { barSchema, eventSchema, type AlpacaEvent } from './schemas.js'
-export class AlpacaProvider implements MarketProvider {
-  private processor = new EventProcessor()
-  private indices = new Map<string, number>()
-  private authenticationTimer?: ReturnType<typeof setTimeout>
-  private ws?: WebSocket
-  private retry?: ReturnType<typeof setTimeout>
-  private watchdog?: ReturnType<typeof setInterval>
-  private stopped = false
-  private failed = false
-  private attempts = 0
-  private alive = true
-  private state: MarketSnapshot
-  private onUpdate = () => {}
-  private previousCloses = new Map<string, number>()
-  private cache = new Map<string, { at: number; bars: Candle[] }>()
-  constructor(
-    assets: Asset[],
-    private key: string,
-    private secret: string,
-    private feed: 'iex' | 'sip',
-  ) {
-    this.state = {
-      assets,
-      quotes: [],
-      trails: {},
-      status: {
-        mode: 'live',
-        state: 'connecting',
-        provider: `Alpaca ${feed.toUpperCase()}`,
-        message: 'Connecting to market data…',
-        lastMessageAt: null,
-      },
-    }
+export const createAlpacaProvider = (
+  assets: Asset[],
+  key: string,
+  secret: string,
+  feed: 'iex' | 'sip',
+) => {
+  const localProcessor = createEventProcessor()
+  const indices = new Map<string, number>()
+  let authenticationTimer: ReturnType<typeof setTimeout> | undefined = undefined
+  let localWs: WebSocket | undefined = undefined
+  let retry: ReturnType<typeof setTimeout> | undefined = undefined
+  let watchdog: ReturnType<typeof setInterval> | undefined = undefined
+  let stopped = false
+  let failed = false
+  let attempts = 0
+  let alive = true
+  let localState: MarketSnapshot
+  let localOnUpdate = () => { }
+  const previousCloses = new Map<string, number>()
+  const cache = new Map<string, { at: number; bars: Candle[] }>()
+  const snapshot = (): MarketSnapshot => {
+    return localState
   }
-  snapshot(): MarketSnapshot {
-    return this.state
+
+  const start = (onUpdate: () => void): void => {
+    localOnUpdate = onUpdate
+    void loadPreviousCloses()
+    connect()
   }
-  start(onUpdate: () => void): void {
-    this.onUpdate = onUpdate
-    void this.loadPreviousCloses()
-    this.connect()
+
+  const headers = (): Record<string, string> => {
+    return { 'APCA-API-KEY-ID': key, 'APCA-API-SECRET-KEY': secret }
   }
-  private headers(): Record<string, string> {
-    return { 'APCA-API-KEY-ID': this.key, 'APCA-API-SECRET-KEY': this.secret }
-  }
-  private async loadPreviousCloses(): Promise<void> {
+
+  const loadPreviousCloses = async (): Promise<void> => {
     // Daily history provides an actual prior close; unknown changes remain null.
     await Promise.all(
-      this.state.assets.map(async (a) => {
+      localState.assets.map(async (a) => {
         try {
-          const bars = await this.candles(a.symbol, '3M')
+          const bars = await candles(a.symbol, '3M')
           const today = new Date().toISOString().slice(0, 10)
           const previous = bars
             .filter(
               (b) => new Date(b.time * 1000).toISOString().slice(0, 10) < today,
             )
             .at(-1)
-          if (previous) this.previousCloses.set(a.symbol, previous.close)
+          if (previous) previousCloses.set(a.symbol, previous.close)
         } catch {
           /* The stream still works when historical access is unavailable. */
         }
       }),
     )
   }
-  private connect(): void {
-    if (this.stopped || this.failed) return
-    this.state.status.state = this.attempts ? 'reconnecting' : 'connecting'
-    this.onUpdate()
-    const socket = (this.ws = new WebSocket(
-      `wss://stream.data.alpaca.markets/v2/${this.feed}`,
+
+  const connect = (): void => {
+    if (stopped || failed) return
+    localState.status.state = attempts ? 'reconnecting' : 'connecting'
+    localOnUpdate()
+    const socket = (localWs = new WebSocket(
+      `wss://stream.data.alpaca.markets/v2/${feed}`,
       { handshakeTimeout: 10000 },
     ))
     socket.on('open', () => {
-      this.authenticationTimer = setTimeout(() => socket.terminate(), 10000)
-      this.alive = true
+      authenticationTimer = setTimeout(() => socket.terminate(), 10000)
+      alive = true
       socket.send(
-        JSON.stringify({ action: 'auth', key: this.key, secret: this.secret }),
+        JSON.stringify({ action: 'auth', key: key, secret: secret }),
       )
-      this.watchdog = setInterval(() => {
-        if (!this.alive) {
+      watchdog = setInterval(() => {
+        if (!alive) {
           socket.terminate()
           return
         }
-        this.alive = false
+        alive = false
         socket.ping()
       }, 20000)
     })
     socket.on('pong', () => {
-      this.alive = true
+      alive = true
     })
     socket.on('message', (raw) => {
-      if (this.stopped || this.ws !== socket) return
+      if (stopped || localWs !== socket) return
       let messages: AlpacaEvent[]
       try {
         messages = z.array(eventSchema).parse(JSON.parse(raw.toString()))
       } catch {
-        this.state.status.message =
+        localState.status.message =
           'Invalid market data received. Reconnecting.'
-        this.onUpdate()
+        localOnUpdate()
         socket.close()
         return
       }
@@ -117,94 +107,95 @@ export class AlpacaProvider implements MarketProvider {
         if (!parsed.success) continue
         const e = parsed.data
         if (e.T === 'success' && e.msg === 'authenticated') {
-          clearTimeout(this.authenticationTimer)
+          clearTimeout(authenticationTimer)
           socket.send(
             JSON.stringify({
               action: 'subscribe',
-              trades: this.state.assets.map((a) => a.symbol),
-              quotes: this.state.assets.map((a) => a.symbol),
+              trades: localState.assets.map((a) => a.symbol),
+              quotes: localState.assets.map((a) => a.symbol),
             }),
           )
-          this.state.status = {
-            ...this.state.status,
+          localState.status = {
+            ...localState.status,
             state: 'connected',
             message: 'Live exchange data. Paper trading only.',
           }
         }
         if (e.T === 'error') {
-          this.state.status.state = 'disconnected'
-          this.state.status.message = `Provider rejected connection (code ${e.code ?? 'unknown'}). Check credentials, feed access, and symbol limits.`
-          this.failed = true
+          localState.status.state = 'disconnected'
+          localState.status.message = `Provider rejected connection (code ${e.code ?? 'unknown'}). Check credentials, feed access, and symbol limits.`
+          failed = true
           socket.close()
         }
         if (
           (e.T !== 't' && e.T !== 'q') ||
           !e.S ||
-          !this.state.assets.some((a) => a.symbol === e.S) ||
+          !localState.assets.some((a) => a.symbol === e.S) ||
           !e.t
         )
           continue
-        const index = this.indices.get(e.S)
+        const index = indices.get(e.S)
         const existing =
-          index === undefined ? undefined : this.state.quotes[index]
-        const quote = this.processor.process(
+          index === undefined ? undefined : localState.quotes[index]
+        const quote = localProcessor.process(
           item,
           existing,
-          this.previousCloses.get(e.S) ?? null,
+          previousCloses.get(e.S) ?? null,
         )
         if (!quote) continue
         if (index === undefined) {
-          this.indices.set(e.S, this.state.quotes.length)
-          this.state.quotes.push(quote)
-        } else this.state.quotes[index] = quote
+          indices.set(e.S, localState.quotes.length)
+          localState.quotes.push(quote)
+        } else localState.quotes[index] = quote
         if (e.T === 't') {
-          const trail = (this.state.trails[e.S] ??= [])
+          const trail = (localState.trails[e.S] ??= [])
           trail.push(quote.price)
           if (trail.length > 30) trail.shift()
         }
-        this.state.status.lastMessageAt = Date.now()
-        this.attempts = 0
-        this.onUpdate()
+        localState.status.lastMessageAt = Date.now()
+        attempts = 0
+        localOnUpdate()
       }
-      this.onUpdate()
+      localOnUpdate()
     })
     socket.on('error', () => {
-      this.state.status.message =
+      localState.status.message =
         'Market connection interrupted. Retrying automatically.'
     })
     socket.on('close', () => {
-      if (this.ws !== socket) return
-      clearInterval(this.watchdog)
-      clearTimeout(this.authenticationTimer)
-      if (this.stopped || this.failed) {
-        this.onUpdate()
+      if (localWs !== socket) return
+      clearInterval(watchdog)
+      clearTimeout(authenticationTimer)
+      if (stopped || failed) {
+        localOnUpdate()
         return
       }
-      this.state.status.state = 'reconnecting'
-      this.onUpdate()
-      this.retry = setTimeout(
-        () => this.connect(),
-        Math.min(30000, 1000 * 2 ** Math.min(this.attempts++, 5)),
+      localState.status.state = 'reconnecting'
+      localOnUpdate()
+      retry = setTimeout(
+        () => connect(),
+        Math.min(30000, 1000 * 2 ** Math.min(attempts++, 5)),
       )
     })
   }
-  async candles(symbol: string, range: Range): Promise<Candle[]> {
+
+  const candles = async (symbol: string, range: Range): Promise<Candle[]> => {
     const cacheKey = `${symbol}:${range}`
-    const cached = this.cache.get(cacheKey)
+    const cached = cache.get(cacheKey)
     if (cached && Date.now() - cached.at < 60000) return cached.bars
     const config = RANGE_CONFIG[range]
     const params = new URLSearchParams({
       symbols: symbol,
       timeframe: config.interval,
       start: new Date(Date.now() - config.days * 86400000).toISOString(),
-      feed: this.feed,
+      feed: feed,
       limit: '10000',
       adjustment: 'split',
       sort: 'asc',
     })
     const response = await fetch(
       `https://data.alpaca.markets/v2/stocks/bars?${params}`,
-      { headers: this.headers(), signal: AbortSignal.timeout(10000) },
+      { headers: headers(), signal: AbortSignal.timeout(10000) },
     )
     if (!response.ok)
       throw new Error(
@@ -221,14 +212,31 @@ export class AlpacaProvider implements MarketProvider {
       close: b.c,
       volume: b.v,
     }))
-    this.cache.set(cacheKey, { at: Date.now(), bars })
+    cache.set(cacheKey, { at: Date.now(), bars })
     return bars
   }
-  stop(): void {
-    this.stopped = true
-    clearTimeout(this.retry)
-    clearTimeout(this.authenticationTimer)
-    clearInterval(this.watchdog)
-    this.ws?.close()
+
+  const stop = (): void => {
+    stopped = true
+    clearTimeout(retry)
+    clearTimeout(authenticationTimer)
+    clearInterval(watchdog)
+    localWs?.close()
   }
+
+  localState = {
+    assets,
+    quotes: [],
+    trails: {},
+    status: {
+      mode: 'live',
+      state: 'connecting',
+      provider: `Alpaca ${feed.toUpperCase()}`,
+      message: 'Connecting to market data…',
+      lastMessageAt: null,
+    },
+  }
+
+  return { snapshot, start, candles, stop }
 }
+export type AlpacaProvider = ReturnType<typeof createAlpacaProvider>

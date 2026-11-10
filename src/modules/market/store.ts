@@ -31,7 +31,7 @@ export const useMarket = defineStore('market', () => {
   )
   const listeners = new Map<string, Set<(update: CandleUpdate) => void>>()
   const metrics = { frames: 0, quoteWrites: 0, chartEvents: 0 }
-  function apply(frame: MarketFrame): void {
+  const apply = (frame: MarketFrame): void => {
     metrics.frames++
     if (frame.type === 'snapshot') {
       if (
@@ -80,17 +80,17 @@ export const useMarket = defineStore('market', () => {
         ?.forEach((listener) => listener(update))
     }
   }
-  function tick(): void {
+  const tick = (): void => {
     now.value = Date.now()
     for (const symbol of Object.keys(quotes)) {
       const value = staleQuote(quotes[symbol], now.value) || !connected.value
       if (stale[symbol] !== value) stale[symbol] = value
     }
   }
-  function subscribe(
+  const subscribe = (
     key: string,
     listener: (update: CandleUpdate) => void,
-  ): () => void {
+  ): () => void => {
     const set = listeners.get(key) ?? new Set()
     set.add(listener)
     listeners.set(key, set)

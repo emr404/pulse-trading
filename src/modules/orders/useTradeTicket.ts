@@ -20,7 +20,7 @@ export interface TradeTicketState {
   submit(): Promise<void>
 }
 
-export function useTradeTicket(): TradeTicketState {
+export const useTradeTicket = (): TradeTicketState => {
   const orders = useOrders()
   const store = useTerminal(),
     side = ref<'buy' | 'sell'>('buy'),
@@ -48,7 +48,7 @@ export function useTradeTicket(): TradeTicketState {
       error.value = ''
     },
   )
-  function fraction(part: number): void {
+  const fraction = (part: number): void => {
     quantity.value = sizeOrder(
       part,
       side.value,
@@ -57,14 +57,14 @@ export function useTradeTicket(): TradeTicketState {
       store.held,
     )
   }
-  async function cancel(): Promise<void> {
+  const cancel = async (): Promise<void> => {
     try {
       if (orders.active) await orders.cancel(orders.active.id)
     } catch {
       error.value = 'Unable to cancel. Check Activity for the latest status.'
     }
   }
-  async function submit(): Promise<void> {
+  const submit = async (): Promise<void> => {
     if (busy.value) return
     if (invalid.value || !store.canTrade) {
       error.value = invalid.value || 'Waiting for a fresh tradable quote.'

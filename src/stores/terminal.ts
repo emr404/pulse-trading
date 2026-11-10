@@ -58,15 +58,15 @@ export const useTerminal = defineStore('terminal', () => {
       activeQuote.value.bid > 0 &&
       activeQuote.value.ask > 0,
   )
-  function select(symbol: string): void {
+  const select = (symbol: string): void => {
     selected.value = symbol
   }
-  function openStock(symbol: string): void {
+  const openStock = (symbol: string): void => {
     select(symbol)
     if (!['Markets', 'Watchlist'].includes(page.value))
       page.value = 'Markets'
   }
-  function toggleWatch(symbol: string): void {
+  const toggleWatch = (symbol: string): void => {
     watchlist.value = watchlist.value.includes(symbol)
       ? watchlist.value.filter((s) => s !== symbol)
       : [...watchlist.value, symbol]

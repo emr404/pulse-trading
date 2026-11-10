@@ -45,7 +45,7 @@ export interface StockChart {
   legend: ComputedRef<Candle | undefined>
   load(): Promise<void>
 }
-export function useStockChart(selection: ChartSelection): StockChart {
+export const useStockChart = (selection: ChartSelection): StockChart => {
   const market = useMarket()
   const currency = useCurrency()
   const container = ref<HTMLDivElement>(),
@@ -64,7 +64,7 @@ export function useStockChart(selection: ChartSelection): StockChart {
   const legend = computed(
     () => hover.value ?? lastBar.value ?? bars.value.at(-1),
   )
-  async function load(): Promise<void> {
+  const load = async (): Promise<void> => {
     if (!chart || !selection.symbol.value) return
     abort?.abort()
     abort = new AbortController()
@@ -210,7 +210,7 @@ export function useStockChart(selection: ChartSelection): StockChart {
   let animation = 0
   const pending = new Map<number, CandleUpdate>()
   const lastBar = shallowRef<Candle | null>(null)
-  function flush(): void {
+  const flush = (): void => {
     animation = 0
     if (
       loading.value ||
@@ -229,7 +229,7 @@ export function useStockChart(selection: ChartSelection): StockChart {
         const seconds = RANGE_CONFIG[selection.range.value].seconds
         const live =
           last &&
-          Math.floor(raw.time / seconds) === Math.floor(last.time / seconds)
+            Math.floor(raw.time / seconds) === Math.floor(last.time / seconds)
             ? { ...raw, time: last.time }
             : raw
         if (last && live.time < last.time) continue
@@ -284,7 +284,7 @@ export function useStockChart(selection: ChartSelection): StockChart {
     () => market.revision,
     () => void load(),
   )
-  function escape(event: KeyboardEvent): void {
+  const escape = (event: KeyboardEvent): void => {
     if (event.key === 'Escape') expanded.value = false
   }
   onMounted(() => document.addEventListener('keydown', escape))

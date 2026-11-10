@@ -17,7 +17,7 @@ const timeFormat = new Intl.DateTimeFormat('en-US', {
   second: '2-digit',
 })
 
-function currencyFormat(currency: Currency): Intl.NumberFormat {
+const currencyFormat = (currency: Currency): Intl.NumberFormat => {
   let formatter = currencyFormats.get(currency)
   if (!formatter) {
     formatter = new Intl.NumberFormat('en-US', {
@@ -31,27 +31,27 @@ function currencyFormat(currency: Currency): Intl.NumberFormat {
   return formatter
 }
 
-export function money(value: number | null | undefined): string {
+export const money = (value: number | null | undefined): string => {
   if (value == null || !Number.isFinite(value)) return '—'
   const display = useCurrency()
   return currencyFormat(display.currency).format(value * display.rate)
 }
-export function moneyUsd(value: number): string {
+export const moneyUsd = (value: number): string => {
   return Number.isFinite(value) ? currencyFormat('USD').format(value) : '—'
 }
-export function number(value: number | null | undefined): string {
+export const number = (value: number | null | undefined): string => {
   return value != null && Number.isFinite(value)
     ? decimalFormat.format(value)
     : '—'
 }
-export function compact(value: number): string {
+export const compact = (value: number): string => {
   return Number.isFinite(value) ? compactFormat.format(value) : '—'
 }
-export function percent(value: number | null | undefined): string {
+export const percent = (value: number | null | undefined): string => {
   if (value == null || !Number.isFinite(value)) return '—'
   return `${value >= 0 ? '+' : ''}${value.toFixed(2)}%`
 }
-export function time(value: number | null): string {
+export const time = (value: number | null): string => {
   if (value === null || !Number.isFinite(value)) return '—'
   const date = new Date(value)
   return Number.isNaN(date.getTime()) ? '—' : timeFormat.format(date)
